@@ -401,7 +401,7 @@ Saved to `outputs/retention_list.csv`:
 | **C1000** | 0.4602 | 0 |
 
 *Actually Lapsed Count*: 1 out of 10.
-*Methodological Notice*: The retention list is an illustrative operational artifact rather than a leakage-free benchmark because the Premium segment designation was derived from the full 6-month RFM window.
+*Methodological Notice*: The retention list is illustrative and not a leakage-free evaluation because the Premium flag comes from the whole-window RFM segmentation which includes the September window.
 
 ---
 
@@ -574,7 +574,6 @@ For Instamart's automated refund workflow, **ReAct is the superior design choice
 ## Limitations and Next Steps
 
 1. **Synthetic Data Realism**: All order histories, customer distributions, and support tickets were generated via synthetic distributions. Real-world quick commerce involves regional dialect mixing, phonetic typos (e.g. "refunnd"), multimodal proof (damaged item photos), and seasonal demand surges (festivals, monsoons). Future work should integrate localized Indian multilingual embeddings.
-2. **Post-Hoc Whole-Window Segment Labeling**: In Part B, the retention list was constructed using whole-window RFM segment designations (which include September 2025 activity). While the lapse model features strictly obeyed temporal boundaries, the Premium segment filter is post-hoc. Production deployments must calculate rolling RFM metrics strictly prior to the cutoff date.
+2. **Post-Hoc Whole-Window Segment Labeling**: In Part B, the retention list was constructed using whole-window RFM segment designations (which include September 2025 activity). The retention list is illustrative and not a leakage-free evaluation because the Premium flag comes from the whole-window RFM segmentation which includes the September window. While the lapse model's own features strictly obeyed temporal boundaries (using only pre-cutoff orders), production deployments must compute rolling RFM metrics strictly prior to the cutoff date.
 3. **Lexical Retrieval Limitations**: The TF-IDF policy retriever lacks semantic understanding of synonyms. Upgrading to dense bi-encoder embeddings (e.g. `all-MiniLM-L6-v2`) with hybrid BM25 re-ranking would improve retrieval accuracy across colloquial customer inquiries.
 4. **Deterministic Mock vs. Production LLMs**: `mock_llm.py` simulates structural failure modes (503s, non-JSON output, invalid categories) deterministically. Transitioning to production hosted models requires continuous schema validation (e.g. Pydantic / instructor), rate-limiting circuit breakers, and human-in-the-loop escalation workflows.
-# instamart-copilot-capstone
