@@ -1,0 +1,22 @@
+[
+  {
+    "path": "part_a/Part_A_Data_Foundation.ipynb",
+    "code_cells_executed": 14,
+    "status": "PASSED"
+  },
+  {
+    "path": "part_b/Part_B_Customer_Segments_and_Lapse_Prediction.ipynb",
+    "code_cells_executed": 10,
+    "status": "PASSED"
+  },
+  {
+    "path": "part_c/Part_C_Support_Ticket_Triage_with_Guardrails.ipynb",
+    "code_cells_executed": 12,
+    "status": "PASSED"
+  },
+  {
+    "path": "part_d/Part_D_Policy_RAG_and_Refund_Agent.ipynb",
+    "code_cells_executed": 19,
+    "status": "PASSED"
+  }
+]

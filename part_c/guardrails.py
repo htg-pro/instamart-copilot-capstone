@@ -56,7 +56,8 @@ def verify_zero_pii_remaining(redacted_text):
     emails = EMAIL_REGEX.findall(redacted_text)
     phones = PHONE_REGEX.findall(redacted_text)
     orders = ORDER_REGEX.findall(redacted_text)
-    assert len(emails) == 0, f"Found leaked email in prompt: {emails}"
-    assert len(phones) == 0, f"Found leaked phone in prompt: {phones}"
-    assert len(orders) == 0, f"Found leaked order ID in prompt: {orders}"
+    # Keep assertion errors safe too: never include the offending private value.
+    assert len(emails) == 0, "Unredacted email found in prompt"
+    assert len(phones) == 0, "Unredacted phone number found in prompt"
+    assert len(orders) == 0, "Unredacted order ID found in prompt"
     return True

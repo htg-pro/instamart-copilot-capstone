@@ -1,140 +1,86 @@
-"""part_d/rag.py - Retrieval-Augmented Generation (RAG) over policy documents."""
-import os
-import glob
+"""Offline policy retrieval, exact assignment prompts, and grounding evaluation."""
+from pathlib import Path
+
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+
 import mock_llm
 
-def chunk_policy_documents(policy_dir=os.path.join("data", "policies"), chunk_size=40, overlap=10):
-    """
-    Splits policy documents into chunks of chunk_size words with given overlap.
-    For overlap=10 and chunk_size=40, step is 30 words.
-    Stops after the first chunk whose end reaches or passes the document's end.
-    """
-    policy_files = sorted(glob.glob(os.path.join(policy_dir, "*.txt")))
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def chunk_policy_documents(policy_dir=None, chunk_size=40, overlap=10):
+    """Split whitespace words, stopping at the first chunk reaching the document end."""
+    if chunk_size <= 0 or not 0 <= overlap < chunk_size:
+        raise ValueError("Require chunk_size > 0 and 0 <= overlap < chunk_size.")
+    policy_dir = Path(policy_dir) if policy_dir is not None else ROOT / "data/policies"
     chunks = []
-    step = chunk_size - overlap if overlap < chunk_size else chunk_size
-
-    for pf in policy_files:
-        fname = os.path.basename(pf)
-        with open(pf, "r", encoding="utf-8") as f:
-            text = f.read().strip()
-        words = text.split()
-        idx = 0
-        while True:
-            chunk_words = words[idx : idx + chunk_size]
-            chunks.append({
-                "source": fname,
-                "text": " ".join(chunk_words)
-            })
-            if idx + chunk_size >= len(words):
+    for path in sorted(policy_dir.glob("*.txt")):
+        words = path.read_text(encoding="utf-8").split()
+        for start in range(0, len(words), chunk_size - overlap):
+            end = min(start + chunk_size, len(words))
+            chunks.append({"source": path.name, "text": " ".join(words[start:end]),
+                           "start_word": start, "end_word": end})
+            if end == len(words):
                 break
-            idx += step
-
     return chunks
+
 
 class PolicyRetriever:
     def __init__(self, chunks):
+        if not chunks:
+            raise ValueError("At least one non-empty policy chunk is required.")
         self.chunks = chunks
         self.vectorizer = TfidfVectorizer()
         self.tfidf_matrix = self.vectorizer.fit_transform([c["text"] for c in chunks])
 
     def retrieve(self, query, k=3):
-        """
-        Transforms query and returns top-k chunks ranked by cosine similarity.
-        """
-        q_vec = self.vectorizer.transform([query])
-        sims = cosine_similarity(q_vec, self.tfidf_matrix)[0]
-        top_indices = sims.argsort()[::-1][:k]
-        return [
-            {
-                "source": self.chunks[i]["source"],
-                "score": float(sims[i]),
-                "text": self.chunks[i]["text"]
-            }
-            for i in top_indices
+        """Return source, cosine score, and text for the k most similar chunks."""
+        if k < 1:
+            raise ValueError("k must be positive.")
+        query_vector = self.vectorizer.transform([query])
+        similarities = cosine_similarity(query_vector, self.tfidf_matrix)[0]
+        indices = similarities.argsort()[::-1][:k]
+        return [{"source": self.chunks[i]["source"], "score": float(similarities[i]),
+                 "text": self.chunks[i]["text"]} for i in indices]
+
+    def build_messages(self, question, k=3):
+        """Construct the two-message, retrieval-grounded prompt without altering chunks."""
+        retrieved = self.retrieve(question, k=k)
+        context = "\n".join(f"[{chunk['source']}]\n{chunk['text']}" for chunk in retrieved)
+        messages = [
+            {"role": "system", "content": "POLICY ASSISTANT. Answer only from the supplied context. "
+             "If the information is missing, say I could not find that information in the policy documents."},
+            {"role": "user", "content": f"CONTEXT:\n{context}\nQUESTION:\n{question}"},
         ]
+        return messages, [chunk["source"] for chunk in retrieved]
 
     def answer(self, question, k=3):
-        """
-        Retrieves top-k chunks, constructs prompt, calls mock_llm.chat with POLICY ASSISTANT.
-        """
-        top_chunks = self.retrieve(question, k=k)
-        context_parts = [f"[{c['source']}]\n{c['text']}" for c in top_chunks]
-        context_str = "\n".join(context_parts)
+        """Return the mock's text, retrieved sources, and measured token usage."""
+        messages, sources = self.build_messages(question, k=k)
+        response = mock_llm.chat(messages)
+        return response.choices[0].message.content, sources, int(response.usage.total_tokens)
 
-        user_content = f"CONTEXT:\n{context_str}\nQUESTION:\n{question}"
-        messages = [
-            {
-                "role": "system",
-                "content": "POLICY ASSISTANT. Answer the question using strictly the supplied context. "
-                           "If the context does not contain the answer, state that you could not find the information in the policy documents."
-            },
-            {
-                "role": "user",
-                "content": user_content
-            }
-        ]
 
-        resp = mock_llm.chat(messages)
-        ans_text = resp.choices[0].message.content
-        sources = [c["source"] for c in top_chunks]
-        return ans_text, sources, resp.usage.total_tokens
-
-def evaluate_policy_rag(retriever, eval_csv_path=os.path.join("data", "raw", "policy_eval.csv")):
-    eval_df = pd.read_csv(eval_csv_path)
-
-    doc_hits = 0
-    fact_hits = 0
-    fallback_hits = 0
-    total_answerable = 0
-    total_unanswerable = 0
-
-    detailed_results = []
-
-    for _, row in eval_df.iterrows():
-        question = row["question"]
-        expected_doc = row["expected_doc"]
-        expected_fact = row["expected_fact"]
-
-        ans, sources, tokens = retriever.answer(question)
-
-        is_answerable = expected_doc != "NONE"
-        doc_hit = False
-        fact_hit = False
-        fallback_hit = False
-
-        if is_answerable:
-            total_answerable += 1
-            if expected_doc in sources:
-                doc_hits += 1
-                doc_hit = True
-            if expected_fact in ans:
-                fact_hits += 1
-                fact_hit = True
-        else:
-            total_unanswerable += 1
-            if ans.startswith("I could not find"):
-                fallback_hits += 1
-                fallback_hit = True
-
-        detailed_results.append({
-            "question": question,
-            "expected_doc": expected_doc,
-            "expected_fact": expected_fact,
-            "sources": sources,
-            "answer": ans,
-            "doc_hit": doc_hit,
-            "fact_hit": fact_hit,
-            "fallback_hit": fallback_hit
-        })
-
+def evaluate_policy_rag(retriever, eval_csv_path=None):
+    """Evaluate document hits, case-sensitive expected facts, and fallback prefixes."""
+    path = Path(eval_csv_path) if eval_csv_path is not None else ROOT / "data/raw/policy_eval.csv"
+    evaluation = pd.read_csv(path).fillna("")
+    details = []
+    for number, row in enumerate(evaluation.to_dict("records"), start=1):
+        answer, sources, tokens = retriever.answer(row["question"])
+        answerable = row["expected_doc"] != "NONE"
+        details.append({"question_id": f"Q{number}", **row, "sources": sources,
+                        "answer": answer, "tokens_used": tokens,
+                        "doc_hit": answerable and row["expected_doc"] in sources,
+                        "fact_hit": answerable and row["expected_fact"] in answer,
+                        "fallback_hit": not answerable and answer.startswith("I could not find")})
     return {
-        "doc_hits": doc_hits,
-        "total_answerable": total_answerable,
-        "fact_hits": fact_hits,
-        "fallback_hits": fallback_hits,
-        "total_unanswerable": total_unanswerable,
-        "details": detailed_results
+        "doc_hits": sum(d["doc_hit"] for d in details),
+        "fact_hits": sum(d["fact_hit"] for d in details),
+        "fallback_hits": sum(d["fallback_hit"] for d in details),
+        "total_answerable": sum(d["expected_doc"] != "NONE" for d in details),
+        "total_unanswerable": sum(d["expected_doc"] == "NONE" for d in details),
+        "details": details,
     }

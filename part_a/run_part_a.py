@@ -10,6 +10,7 @@ from part_a.clean import run_cleaning
 from part_a.db import store_to_sqlite, run_sql_queries
 from part_a.validate import validate_part_a
 from part_a.eda import run_eda
+from part_a.report import build_report
 
 def main():
     print("==================================================")
@@ -62,7 +63,11 @@ def main():
     for k, v in eda_results["distribution_stats"].items():
         print(f"  {k}: {v}")
 
+    report = build_report()
+    print("\nCleaning changes:", report["cleaning_changes"])
+    print("SQL checkpoints passed; measured report: outputs/part_a_report.json")
     print("\nPart A completed successfully!")
+    return report
 
 if __name__ == "__main__":
     main()

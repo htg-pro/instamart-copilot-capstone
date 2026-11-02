@@ -1,0 +1,376 @@
+{
+  "snapshot": "2025-10-01 00:00:00",
+  "monetary_currency": "INR",
+  "rfm_summary": {
+    "customers": 1175,
+    "recency_median": 19.0,
+    "recency_min": 0,
+    "recency_max": 180,
+    "frequency_mean": 9.45531914893617,
+    "frequency_max": 33,
+    "monetary_mean_inr": 2552.0585531914894,
+    "monetary_max_inr": 14766.55
+  },
+  "kmeans_evaluation": [
+    {
+      "k": 2,
+      "inertia": 1820.8,
+      "silhouette": 0.465
+    },
+    {
+      "k": 3,
+      "inertia": 1268.2,
+      "silhouette": 0.445
+    },
+    {
+      "k": 4,
+      "inertia": 743.1,
+      "silhouette": 0.526
+    },
+    {
+      "k": 5,
+      "inertia": 617.4,
+      "silhouette": 0.48
+    },
+    {
+      "k": 6,
+      "inertia": 503.2,
+      "silhouette": 0.482
+    },
+    {
+      "k": 7,
+      "inertia": 408.5,
+      "silhouette": 0.416
+    },
+    {
+      "k": 8,
+      "inertia": 366.5,
+      "silhouette": 0.412
+    }
+  ],
+  "chosen_k": 4,
+  "cluster_choice_explanation": "Choose K=4: the large inertia reduction from K=3 to K=4 is followed by smaller improvements, and K=4 has the strongest silhouette among the actionable choices K=3,4,5. Its four profiles support distinct occasional-buyer, premium, frequent-shopper and win-back campaigns. K-means inertia is the within-cluster squared-distance objective; adding centres increases flexibility, so the best achievable inertia cannot increase and the observed K=8 value is lower than K=2. Lower inertia alone cannot choose K because ever-smaller clusters may be less interpretable and less well separated. Cluster numbers are arbitrary labels and have no numerical ordering.",
+  "segment_profiles": [
+    {
+      "segment_id": 0,
+      "size": 436,
+      "mean_recency": 28.862385321100916,
+      "mean_frequency": 3.772935779816514,
+      "mean_monetary": 1057.618233944954,
+      "segment_name": "Occasional / Regular Buyers",
+      "recommended_action": "Suggest relevant replenishment bundles to increase purchase frequency.",
+      "is_premium": false
+    },
+    {
+      "segment_id": 1,
+      "size": 138,
+      "mean_recency": 24.115942028985508,
+      "mean_frequency": 6.768115942028985,
+      "mean_monetary": 7129.695652173913,
+      "segment_name": "High-Value Premium",
+      "recommended_action": "Offer a priority support desk and personalised high-value bundles.",
+      "is_premium": true
+    },
+    {
+      "segment_id": 2,
+      "size": 419,
+      "mean_recency": 8.766109785202865,
+      "mean_frequency": 19.403341288782816,
+      "mean_monetary": 3410.020525059666,
+      "segment_name": "Active Frequent Shoppers",
+      "recommended_action": "Reward repeat purchases with loyalty benefits and replenishment reminders.",
+      "is_premium": false
+    },
+    {
+      "segment_id": 3,
+      "size": 182,
+      "mean_recency": 109.04395604395604,
+      "mean_frequency": 2.2032967032967035,
+      "mean_monetary": 685.9925824175824,
+      "segment_name": "Dormant / At-Risk",
+      "recommended_action": "Send a time-limited win-back offer and investigate service problems.",
+      "is_premium": false
+    }
+  ],
+  "pca_explained_variance_ratio": [
+    0.6342787496047423,
+    0.21803761714547448
+  ],
+  "pca_total_explained_variance": 0.8523163667502167,
+  "lapse_experiment": {
+    "cohort_size": 1156,
+    "lapsed_count": 443,
+    "lapsed_pct": 38.32179930795848,
+    "train_size": 924,
+    "test_size": 232,
+    "train_class_counts": {
+      "0": 570,
+      "1": 354
+    },
+    "test_class_counts": {
+      "0": 143,
+      "1": 89
+    },
+    "learned_freq_mean": 8.114718614718615,
+    "full_cohort_freq_mean": 8.028546712802768,
+    "scaler_explanation": "The scaler mean uses training customers only; the full-cohort mean also includes held-out customers, so random sampling makes them differ.",
+    "feature_columns": [
+      "recency",
+      "frequency",
+      "monetary",
+      "avg_discount_pct",
+      "cancellation_rate",
+      "avg_delivery_minutes",
+      "age",
+      "tenure_days",
+      "favourite_category",
+      "city",
+      "gender"
+    ],
+    "no_missing_feature_values": true,
+    "feature_audit": {
+      "feature_cutoff": "2025-09-01 00:00:00",
+      "maximum_feature_order_ts": "2025-08-31 22:35:45",
+      "label_window_end_exclusive": "2025-10-01 00:00:00"
+    },
+    "nominal_encoding": "OneHotEncoder(drop='first', handle_unknown='ignore') fitted inside each training pipeline/CV fold.",
+    "baseline": {
+      "cm": [
+        [
+          143,
+          0
+        ],
+        [
+          89,
+          0
+        ]
+      ],
+      "accuracy": 0.6163793103448276,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "lr_tuning": {
+      "grid": {
+        "clf__C": [
+          0.01,
+          0.1,
+          1,
+          10,
+          100
+        ]
+      },
+      "best_params": {
+        "clf__C": 100
+      },
+      "best_cv_f1": 0.650552962900789,
+      "cv_fits": 25
+    },
+    "rf_tuning": {
+      "grid": {
+        "clf__max_depth": [
+          3,
+          5,
+          8
+        ],
+        "clf__min_samples_leaf": [
+          5,
+          10,
+          20
+        ]
+      },
+      "best_params": {
+        "clf__max_depth": 8,
+        "clf__min_samples_leaf": 10
+      },
+      "best_cv_f1": 0.686504101416853,
+      "cv_fits": 45
+    },
+    "lr_test": {
+      "cm": [
+        [
+          111,
+          32
+        ],
+        [
+          31,
+          58
+        ]
+      ],
+      "accuracy": 0.728448275862069,
+      "precision": 0.6444444444444445,
+      "recall": 0.651685393258427,
+      "f1": 0.6480446927374302
+    },
+    "rf_test": {
+      "cm": [
+        [
+          111,
+          32
+        ],
+        [
+          32,
+          57
+        ]
+      ],
+      "accuracy": 0.7241379310344828,
+      "precision": 0.6404494382022472,
+      "recall": 0.6404494382022472,
+      "f1": 0.6404494382022472
+    },
+    "lr_balanced_test": {
+      "cm": [
+        [
+          90,
+          53
+        ],
+        [
+          13,
+          76
+        ]
+      ],
+      "accuracy": 0.7155172413793104,
+      "precision": 0.5891472868217055,
+      "recall": 0.8539325842696629,
+      "f1": 0.6972477064220184
+    },
+    "balanced_train_class_counts": {
+      "0": 570,
+      "1": 570
+    },
+    "oversampled_duplicate_count": 216,
+    "balance_metric_changes": {
+      "precision": -0.05529715762273901,
+      "recall": 0.2022471910112359,
+      "f1": 0.04920301368458824
+    },
+    "balance_metric_moved_most": "recall",
+    "balance_explanation": "Recall moves most (+0.2022); balancing increases the incentive to identify lapsing customers, but extra targeting can lower precision.",
+    "top5_features": [
+      {
+        "feature": "monetary",
+        "importance": 0.27782967729234825,
+        "business_reading": "Earlier spending captures customer value and purchase intensity in INR."
+      },
+      {
+        "feature": "frequency",
+        "importance": 0.27678746927823344,
+        "business_reading": "Earlier completed-order frequency distinguishes regular shoppers."
+      },
+      {
+        "feature": "recency",
+        "importance": 0.11121869821096042,
+        "business_reading": "Days since the last completed order indicate disengagement."
+      },
+      {
+        "feature": "avg_delivery_minutes",
+        "importance": 0.061649193495127215,
+        "business_reading": "Earlier delivery duration captures service experience."
+      },
+      {
+        "feature": "avg_discount_pct",
+        "importance": 0.053177853675867214,
+        "business_reading": "Earlier discount usage helps identify promotion-sensitive shoppers."
+      }
+    ],
+    "lr_coefs": {
+      "recency": 0.039585029985202275,
+      "frequency": -1.6982389203159163,
+      "monetary": 0.28457332751942344,
+      "avg_discount_pct": 0.004437795778988079,
+      "cancellation_rate": -0.12359841457679878,
+      "avg_delivery_minutes": 0.07851387893513925,
+      "age": 0.023342033616081018,
+      "tenure_days": -0.05022244307368644,
+      "favourite_category_Electronics": -1.1367129072337343,
+      "favourite_category_Grocery": -0.44867271537696474,
+      "favourite_category_Personal Care": -0.2840446845359439,
+      "favourite_category_Snacks": -0.2791865318278128,
+      "city_Chennai": -0.16960953506969703,
+      "city_Delhi": -0.37451719405715433,
+      "city_Hyderabad": -0.13571799993665531,
+      "city_Mumbai": -0.23029004730616018,
+      "city_Pune": -0.031585264576789715,
+      "gender_male": -0.2078834770743227,
+      "gender_unknown": -0.16036512386373036
+    },
+    "lr_coefficient_readings": [
+      {
+        "feature": "recency",
+        "coefficient": 0.039585029985202275,
+        "sign": "positive",
+        "business_reading": "Days since the last completed order indicate disengagement. Its coefficient implies higher lapse log-odds as the feature increases, holding other inputs fixed."
+      },
+      {
+        "feature": "frequency",
+        "coefficient": -1.6982389203159163,
+        "sign": "negative",
+        "business_reading": "Earlier completed-order frequency distinguishes regular shoppers. Its coefficient implies lower lapse log-odds as the feature increases, holding other inputs fixed."
+      },
+      {
+        "feature": "avg_discount_pct",
+        "coefficient": 0.004437795778988079,
+        "sign": "positive",
+        "business_reading": "Earlier discount usage helps identify promotion-sensitive shoppers. Its coefficient implies higher lapse log-odds as the feature increases, holding other inputs fixed."
+      }
+    ],
+    "selected_model": "random forest",
+    "selected_model_justification": "We select the tuned random forest because its training cross-validated F1 is highest (0.6865); the test set did not choose its parameters. On the untouched test set its lapsed-class F1 is 0.6404, precision is 0.6404 and recall is 0.6404. It misses 32 lapsing customers and wrongly targets 32 loyal customers at the default threshold. Missing a lapsing customer can lose repeat revenue, whereas an unnecessary retention offer costs discount spend and may annoy a loyal customer, so the team should validate campaign economics and a recall-oriented threshold on a separate validation set before deployment.",
+    "reload_predictions_match": true,
+    "premium_test_customers": 40,
+    "retention_top10": [
+      {
+        "customer_id": "C0862",
+        "lapse_probability": 0.5303694348354085,
+        "actually_lapsed": 0
+      },
+      {
+        "customer_id": "C0060",
+        "lapse_probability": 0.4764729033012809,
+        "actually_lapsed": 0
+      },
+      {
+        "customer_id": "C1008",
+        "lapse_probability": 0.47562138395155207,
+        "actually_lapsed": 0
+      },
+      {
+        "customer_id": "C0267",
+        "lapse_probability": 0.4752632746476128,
+        "actually_lapsed": 0
+      },
+      {
+        "customer_id": "C0133",
+        "lapse_probability": 0.4711793899229666,
+        "actually_lapsed": 0
+      },
+      {
+        "customer_id": "C0942",
+        "lapse_probability": 0.4687978459945262,
+        "actually_lapsed": 0
+      },
+      {
+        "customer_id": "C1000",
+        "lapse_probability": 0.4654369112392462,
+        "actually_lapsed": 0
+      },
+      {
+        "customer_id": "C0553",
+        "lapse_probability": 0.4644622003924882,
+        "actually_lapsed": 0
+      },
+      {
+        "customer_id": "C1112",
+        "lapse_probability": 0.4620144085410822,
+        "actually_lapsed": 0
+      },
+      {
+        "customer_id": "C0565",
+        "lapse_probability": 0.4602550977230535,
+        "actually_lapsed": 1
+      }
+    ],
+    "retention_actually_lapsed_count": 1,
+    "retention_limitation": "The Premium flag is a post-hoc whole-window RFM label that includes September; therefore the retention list is illustrative and is not a leakage-free evaluation."
+  }
+}

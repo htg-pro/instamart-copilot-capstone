@@ -1,6 +1,9 @@
 """run_pipeline.py - Master execution script for the entire Instamart Copilot pipeline."""
 import sys
 import os
+import argparse
+import subprocess
+from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
@@ -10,6 +13,15 @@ from part_c.run_part_c import main as run_part_c
 from part_d.run_part_d import main as run_part_d
 
 def main():
+    parser = argparse.ArgumentParser(description="Run Parts A-D of the offline Instamart capstone.")
+    parser.add_argument("--generate", action="store_true", help="Regenerate the supplied synthetic data first")
+    args = parser.parse_args()
+    root = Path(__file__).resolve().parent
+    os.chdir(root)
+    if args.generate:
+        subprocess.run([sys.executable, "generate_data.py"], check=True)
+    elif not (root / "data/raw/orders.csv").exists():
+        parser.error("Raw data missing. Use --generate or run python generate_data.py first.")
     print("====================================================================")
     print("       INSTAMART CUSTOMER INTELLIGENCE & SUPPORT COPILOT            ")
     print("                END-TO-END PIPELINE EXECUTION                       ")

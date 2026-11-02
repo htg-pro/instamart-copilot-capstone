@@ -77,6 +77,17 @@ def build_segments(rfm_df, k=4, output_path=os.path.join("outputs", "customer_se
     cols = ["customer_id", "recency", "frequency", "monetary", "segment_id", "segment_name", "is_premium"]
     segments_df[cols].to_csv(output_path, index=False)
 
+    action_map = {
+        "High-Value Premium": "Offer a priority support desk and personalised high-value bundles.",
+        "Active Frequent Shoppers": "Reward repeat purchases with loyalty benefits and replenishment reminders.",
+        "Dormant / At-Risk": "Send a time-limited win-back offer and investigate service problems.",
+        "Occasional / Regular Buyers": "Suggest relevant replenishment bundles to increase purchase frequency.",
+    }
+    cluster_stats["segment_name"] = cluster_stats["segment_id"].map(name_map)
+    cluster_stats["recommended_action"] = cluster_stats["segment_name"].map(action_map)
+    cluster_stats["is_premium"] = cluster_stats["segment_id"].eq(premium_cluster_id)
+    assert cluster_stats["is_premium"].sum() == 1
+
     return segments_df, cluster_stats, pca_ratios
 
 if __name__ == "__main__":

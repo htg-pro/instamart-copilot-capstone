@@ -1,0 +1,40 @@
+{
+  "status": "ALL PROJECT CHECKS PASSED",
+  "supplied_files_unmodified": true,
+  "parts_passed": [
+    "A",
+    "B",
+    "C",
+    "D"
+  ],
+  "selected_model_test_f1": 0.6404494382022472,
+  "notebooks": [
+    {
+      "path": "part_a/Part_A_Data_Foundation.ipynb",
+      "executed_code_cells": 14
+    },
+    {
+      "path": "part_b/Part_B_Customer_Segments_and_Lapse_Prediction.ipynb",
+      "executed_code_cells": 10
+    },
+    {
+      "path": "part_c/Part_C_Support_Ticket_Triage_with_Guardrails.ipynb",
+      "executed_code_cells": 12
+    },
+    {
+      "path": "part_d/Part_D_Policy_RAG_and_Refund_Agent.ipynb",
+      "executed_code_cells": 19
+    }
+  ],
+  "regression_checks": [
+    "latest whole order row",
+    "fractional age median",
+    "future label isolation",
+    "oversampling preserves original train rows",
+    "strict output validation",
+    "PII masking",
+    "reference results",
+    "routing",
+    "agent limits and artifacts"
+  ]
+}

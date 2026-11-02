@@ -1,0 +1,804 @@
+{
+  "input_audit": {
+    "tickets": 164,
+    "guardrail_counts": {
+      "eligible": 156,
+      "skipped_empty": 4,
+      "flagged_long": 4
+    },
+    "long_tickets": [
+      {
+        "ticket_id": "T0163",
+        "estimated_tokens": 734
+      },
+      {
+        "ticket_id": "T0162",
+        "estimated_tokens": 734
+      },
+      {
+        "ticket_id": "T0164",
+        "estimated_tokens": 734
+      },
+      {
+        "ticket_id": "T0161",
+        "estimated_tokens": 734
+      }
+    ],
+    "pii_substitutions": {
+      "email": 55,
+      "phone": 91,
+      "order_id": 132,
+      "total": 278
+    },
+    "pii_remaining": {
+      "email": 0,
+      "phone": 0,
+      "order_id": 0
+    }
+  },
+  "prompts": {
+    "zero_shot": "CLASSIFY the support ticket into exactly one of: billing, delivery, technical, fraud.\nYou must respond strictly in valid JSON format:\n{\"category\": \"...\", \"reason\": \"...\"}",
+    "few_shot": "CLASSIFY the support ticket into exactly one of: billing, delivery, technical, fraud.\nYou must respond strictly in valid JSON format:\n{\"category\": \"...\", \"reason\": \"...\"}\nEXAMPLES:\nTicket: I was charged twice for order [ORDER_ID]. Please refund the extra payment.\nResponse: {\"category\": \"billing\", \"reason\": \"charged twice for order\"}\nTicket: Someone hacked my account and made unauthorized transactions.\nResponse: {\"category\": \"fraud\", \"reason\": \"unauthorized account takeover\"}"
+  },
+  "retry_policy": {
+    "max_retries": 3,
+    "base_delay_seconds": 0.05,
+    "jitter_min": 0.9,
+    "jitter_max": 1.15,
+    "random_seed": 42
+  },
+  "zero_shot": {
+    "rows": 164,
+    "classified": 147,
+    "correct": 126,
+    "accuracy": 0.8571428571428571,
+    "total_tokens": 9400,
+    "tokens_per_classified_ticket": 63.945578231292515,
+    "status_counts": {
+      "classified_json": 135,
+      "classified_keyword": 12,
+      "flagged_invalid_output": 9,
+      "skipped_empty": 4,
+      "flagged_long": 4
+    },
+    "routing_counts": {
+      "support_queue": 112,
+      "security_team": 23,
+      "human_review": 17,
+      "premium_desk": 12
+    },
+    "priority_counts": {
+      "NORMAL": 129,
+      "HIGH": 35
+    },
+    "confusion_categories": [
+      "billing",
+      "delivery",
+      "technical",
+      "fraud"
+    ],
+    "confusion_matrix": [
+      [
+        38,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        36,
+        0,
+        0
+      ],
+      [
+        10,
+        0,
+        29,
+        0
+      ],
+      [
+        11,
+        0,
+        0,
+        23
+      ]
+    ],
+    "audit": {
+      "random_seed": 42,
+      "token_budget": null,
+      "system_prompt_estimated_tokens": 32,
+      "successful_model_calls": 156,
+      "model_attempts": 175,
+      "transient_errors_recovered": 19,
+      "retry_events": [
+        {
+          "ticket_id": "T0002",
+          "retry_number": 0,
+          "wait_seconds": 0.05299283498072355
+        },
+        {
+          "ticket_id": "T0116",
+          "retry_number": 0,
+          "wait_seconds": 0.04531263444028334
+        },
+        {
+          "ticket_id": "T0153",
+          "retry_number": 0,
+          "wait_seconds": 0.04843786647961399
+        },
+        {
+          "ticket_id": "T0039",
+          "retry_number": 0,
+          "wait_seconds": 0.047790134226860286
+        },
+        {
+          "ticket_id": "T0152",
+          "retry_number": 0,
+          "wait_seconds": 0.05420589017705016
+        },
+        {
+          "ticket_id": "T0043",
+          "retry_number": 0,
+          "wait_seconds": 0.053458743592786385
+        },
+        {
+          "ticket_id": "T0111",
+          "retry_number": 0,
+          "wait_seconds": 0.05615224459631057
+        },
+        {
+          "ticket_id": "T0155",
+          "retry_number": 0,
+          "wait_seconds": 0.0460867354078677
+        },
+        {
+          "ticket_id": "T0100",
+          "retry_number": 0,
+          "wait_seconds": 0.050274022746065884
+        },
+        {
+          "ticket_id": "T0068",
+          "retry_number": 0,
+          "wait_seconds": 0.04537246524297588
+        },
+        {
+          "ticket_id": "T0135",
+          "retry_number": 0,
+          "wait_seconds": 0.047732974685045046
+        },
+        {
+          "ticket_id": "T0009",
+          "retry_number": 0,
+          "wait_seconds": 0.05131694110129203
+        },
+        {
+          "ticket_id": "T0067",
+          "retry_number": 0,
+          "wait_seconds": 0.0453316996210483
+        },
+        {
+          "ticket_id": "T0106",
+          "retry_number": 0,
+          "wait_seconds": 0.047485470633583104
+        },
+        {
+          "ticket_id": "T0097",
+          "retry_number": 0,
+          "wait_seconds": 0.05312355547224404
+        },
+        {
+          "ticket_id": "T0003",
+          "retry_number": 0,
+          "wait_seconds": 0.05181176850754021
+        },
+        {
+          "ticket_id": "T0019",
+          "retry_number": 0,
+          "wait_seconds": 0.047755507775508715
+        },
+        {
+          "ticket_id": "T0086",
+          "retry_number": 0,
+          "wait_seconds": 0.05236582104844886
+        },
+        {
+          "ticket_id": "T0065",
+          "retry_number": 0,
+          "wait_seconds": 0.05511788070847284
+        }
+      ],
+      "permanent_model_errors": 0,
+      "redaction_counts": {
+        "email": 55,
+        "phone": 91,
+        "order_id": 132,
+        "total": 278
+      },
+      "pii_remaining": {
+        "email": 0,
+        "phone": 0,
+        "order_id": 0
+      },
+      "all_prompt_pii_checks_passed": true,
+      "budget_policy": "Admit only if usage so far is below budget; last response may cross it.",
+      "budget_overshoot_tokens": 0
+    },
+    "retry_log": [
+      "[RETRY] Ticket: T0002 | Retry: 0 | Wait: 0.052993s",
+      "[RETRY] Ticket: T0116 | Retry: 0 | Wait: 0.045313s",
+      "[RETRY] Ticket: T0153 | Retry: 0 | Wait: 0.048438s",
+      "[RETRY] Ticket: T0039 | Retry: 0 | Wait: 0.047790s",
+      "[RETRY] Ticket: T0152 | Retry: 0 | Wait: 0.054206s",
+      "[RETRY] Ticket: T0043 | Retry: 0 | Wait: 0.053459s",
+      "[RETRY] Ticket: T0111 | Retry: 0 | Wait: 0.056152s",
+      "[RETRY] Ticket: T0155 | Retry: 0 | Wait: 0.046087s",
+      "[RETRY] Ticket: T0100 | Retry: 0 | Wait: 0.050274s",
+      "[RETRY] Ticket: T0068 | Retry: 0 | Wait: 0.045372s",
+      "[RETRY] Ticket: T0135 | Retry: 0 | Wait: 0.047733s",
+      "[RETRY] Ticket: T0009 | Retry: 0 | Wait: 0.051317s",
+      "[RETRY] Ticket: T0067 | Retry: 0 | Wait: 0.045332s",
+      "[RETRY] Ticket: T0106 | Retry: 0 | Wait: 0.047485s",
+      "[RETRY] Ticket: T0097 | Retry: 0 | Wait: 0.053124s",
+      "[RETRY] Ticket: T0003 | Retry: 0 | Wait: 0.051812s",
+      "[RETRY] Ticket: T0019 | Retry: 0 | Wait: 0.047756s",
+      "[RETRY] Ticket: T0086 | Retry: 0 | Wait: 0.052366s",
+      "[RETRY] Ticket: T0065 | Retry: 0 | Wait: 0.055118s"
+    ]
+  },
+  "few_shot": {
+    "rows": 164,
+    "classified": 147,
+    "correct": 147,
+    "accuracy": 1.0,
+    "total_tokens": 17044,
+    "tokens_per_classified_ticket": 115.94557823129252,
+    "status_counts": {
+      "classified_json": 135,
+      "classified_keyword": 12,
+      "flagged_invalid_output": 9,
+      "skipped_empty": 4,
+      "flagged_long": 4
+    },
+    "routing_counts": {
+      "support_queue": 102,
+      "security_team": 34,
+      "human_review": 17,
+      "premium_desk": 11
+    },
+    "priority_counts": {
+      "NORMAL": 119,
+      "HIGH": 45
+    },
+    "confusion_categories": [
+      "billing",
+      "delivery",
+      "technical",
+      "fraud"
+    ],
+    "confusion_matrix": [
+      [
+        38,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        36,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        39,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        34
+      ]
+    ],
+    "audit": {
+      "random_seed": 42,
+      "token_budget": null,
+      "system_prompt_estimated_tokens": 81,
+      "successful_model_calls": 156,
+      "model_attempts": 175,
+      "transient_errors_recovered": 19,
+      "retry_events": [
+        {
+          "ticket_id": "T0002",
+          "retry_number": 0,
+          "wait_seconds": 0.05299283498072355
+        },
+        {
+          "ticket_id": "T0116",
+          "retry_number": 0,
+          "wait_seconds": 0.04531263444028334
+        },
+        {
+          "ticket_id": "T0153",
+          "retry_number": 0,
+          "wait_seconds": 0.04843786647961399
+        },
+        {
+          "ticket_id": "T0039",
+          "retry_number": 0,
+          "wait_seconds": 0.047790134226860286
+        },
+        {
+          "ticket_id": "T0152",
+          "retry_number": 0,
+          "wait_seconds": 0.05420589017705016
+        },
+        {
+          "ticket_id": "T0043",
+          "retry_number": 0,
+          "wait_seconds": 0.053458743592786385
+        },
+        {
+          "ticket_id": "T0111",
+          "retry_number": 0,
+          "wait_seconds": 0.05615224459631057
+        },
+        {
+          "ticket_id": "T0155",
+          "retry_number": 0,
+          "wait_seconds": 0.0460867354078677
+        },
+        {
+          "ticket_id": "T0100",
+          "retry_number": 0,
+          "wait_seconds": 0.050274022746065884
+        },
+        {
+          "ticket_id": "T0068",
+          "retry_number": 0,
+          "wait_seconds": 0.04537246524297588
+        },
+        {
+          "ticket_id": "T0135",
+          "retry_number": 0,
+          "wait_seconds": 0.047732974685045046
+        },
+        {
+          "ticket_id": "T0009",
+          "retry_number": 0,
+          "wait_seconds": 0.05131694110129203
+        },
+        {
+          "ticket_id": "T0067",
+          "retry_number": 0,
+          "wait_seconds": 0.0453316996210483
+        },
+        {
+          "ticket_id": "T0106",
+          "retry_number": 0,
+          "wait_seconds": 0.047485470633583104
+        },
+        {
+          "ticket_id": "T0097",
+          "retry_number": 0,
+          "wait_seconds": 0.05312355547224404
+        },
+        {
+          "ticket_id": "T0003",
+          "retry_number": 0,
+          "wait_seconds": 0.05181176850754021
+        },
+        {
+          "ticket_id": "T0019",
+          "retry_number": 0,
+          "wait_seconds": 0.047755507775508715
+        },
+        {
+          "ticket_id": "T0086",
+          "retry_number": 0,
+          "wait_seconds": 0.05236582104844886
+        },
+        {
+          "ticket_id": "T0065",
+          "retry_number": 0,
+          "wait_seconds": 0.05511788070847284
+        }
+      ],
+      "permanent_model_errors": 0,
+      "redaction_counts": {
+        "email": 55,
+        "phone": 91,
+        "order_id": 132,
+        "total": 278
+      },
+      "pii_remaining": {
+        "email": 0,
+        "phone": 0,
+        "order_id": 0
+      },
+      "all_prompt_pii_checks_passed": true,
+      "budget_policy": "Admit only if usage so far is below budget; last response may cross it.",
+      "budget_overshoot_tokens": 0
+    },
+    "retry_log": [
+      "[RETRY] Ticket: T0002 | Retry: 0 | Wait: 0.052993s",
+      "[RETRY] Ticket: T0116 | Retry: 0 | Wait: 0.045313s",
+      "[RETRY] Ticket: T0153 | Retry: 0 | Wait: 0.048438s",
+      "[RETRY] Ticket: T0039 | Retry: 0 | Wait: 0.047790s",
+      "[RETRY] Ticket: T0152 | Retry: 0 | Wait: 0.054206s",
+      "[RETRY] Ticket: T0043 | Retry: 0 | Wait: 0.053459s",
+      "[RETRY] Ticket: T0111 | Retry: 0 | Wait: 0.056152s",
+      "[RETRY] Ticket: T0155 | Retry: 0 | Wait: 0.046087s",
+      "[RETRY] Ticket: T0100 | Retry: 0 | Wait: 0.050274s",
+      "[RETRY] Ticket: T0068 | Retry: 0 | Wait: 0.045372s",
+      "[RETRY] Ticket: T0135 | Retry: 0 | Wait: 0.047733s",
+      "[RETRY] Ticket: T0009 | Retry: 0 | Wait: 0.051317s",
+      "[RETRY] Ticket: T0067 | Retry: 0 | Wait: 0.045332s",
+      "[RETRY] Ticket: T0106 | Retry: 0 | Wait: 0.047485s",
+      "[RETRY] Ticket: T0097 | Retry: 0 | Wait: 0.053124s",
+      "[RETRY] Ticket: T0003 | Retry: 0 | Wait: 0.051812s",
+      "[RETRY] Ticket: T0019 | Retry: 0 | Wait: 0.047756s",
+      "[RETRY] Ticket: T0086 | Retry: 0 | Wait: 0.052366s",
+      "[RETRY] Ticket: T0065 | Retry: 0 | Wait: 0.055118s"
+    ]
+  },
+  "budget_demo": {
+    "rows": 164,
+    "classified": 95,
+    "correct": 80,
+    "accuracy": 0.8421052631578947,
+    "total_tokens": 6038,
+    "tokens_per_classified_ticket": 63.55789473684211,
+    "status_counts": {
+      "classified_json": 88,
+      "budget_exhausted": 56,
+      "classified_keyword": 7,
+      "flagged_invalid_output": 5,
+      "skipped_empty": 4,
+      "flagged_long": 4
+    },
+    "routing_counts": {
+      "support_queue": 73,
+      "human_review": 69,
+      "security_team": 14,
+      "premium_desk": 8
+    },
+    "priority_counts": {
+      "NORMAL": 142,
+      "HIGH": 22
+    },
+    "confusion_categories": [
+      "billing",
+      "delivery",
+      "technical",
+      "fraud"
+    ],
+    "confusion_matrix": [
+      [
+        26,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        18,
+        0,
+        0
+      ],
+      [
+        6,
+        0,
+        22,
+        0
+      ],
+      [
+        9,
+        0,
+        0,
+        14
+      ]
+    ],
+    "audit": {
+      "random_seed": 42,
+      "token_budget": 6000,
+      "system_prompt_estimated_tokens": 32,
+      "successful_model_calls": 100,
+      "model_attempts": 112,
+      "transient_errors_recovered": 12,
+      "retry_events": [
+        {
+          "ticket_id": "T0002",
+          "retry_number": 0,
+          "wait_seconds": 0.05299283498072355
+        },
+        {
+          "ticket_id": "T0116",
+          "retry_number": 0,
+          "wait_seconds": 0.04531263444028334
+        },
+        {
+          "ticket_id": "T0153",
+          "retry_number": 0,
+          "wait_seconds": 0.04843786647961399
+        },
+        {
+          "ticket_id": "T0039",
+          "retry_number": 0,
+          "wait_seconds": 0.047790134226860286
+        },
+        {
+          "ticket_id": "T0152",
+          "retry_number": 0,
+          "wait_seconds": 0.05420589017705016
+        },
+        {
+          "ticket_id": "T0043",
+          "retry_number": 0,
+          "wait_seconds": 0.053458743592786385
+        },
+        {
+          "ticket_id": "T0111",
+          "retry_number": 0,
+          "wait_seconds": 0.05615224459631057
+        },
+        {
+          "ticket_id": "T0155",
+          "retry_number": 0,
+          "wait_seconds": 0.0460867354078677
+        },
+        {
+          "ticket_id": "T0100",
+          "retry_number": 0,
+          "wait_seconds": 0.050274022746065884
+        },
+        {
+          "ticket_id": "T0068",
+          "retry_number": 0,
+          "wait_seconds": 0.04537246524297588
+        },
+        {
+          "ticket_id": "T0135",
+          "retry_number": 0,
+          "wait_seconds": 0.047732974685045046
+        },
+        {
+          "ticket_id": "T0009",
+          "retry_number": 0,
+          "wait_seconds": 0.05131694110129203
+        }
+      ],
+      "permanent_model_errors": 0,
+      "redaction_counts": {
+        "email": 55,
+        "phone": 91,
+        "order_id": 132,
+        "total": 278
+      },
+      "pii_remaining": {
+        "email": 0,
+        "phone": 0,
+        "order_id": 0
+      },
+      "all_prompt_pii_checks_passed": true,
+      "budget_policy": "Admit only if usage so far is below budget; last response may cross it.",
+      "budget_overshoot_tokens": 38
+    },
+    "retry_log": [
+      "[RETRY] Ticket: T0002 | Retry: 0 | Wait: 0.052993s",
+      "[RETRY] Ticket: T0116 | Retry: 0 | Wait: 0.045313s",
+      "[RETRY] Ticket: T0153 | Retry: 0 | Wait: 0.048438s",
+      "[RETRY] Ticket: T0039 | Retry: 0 | Wait: 0.047790s",
+      "[RETRY] Ticket: T0152 | Retry: 0 | Wait: 0.054206s",
+      "[RETRY] Ticket: T0043 | Retry: 0 | Wait: 0.053459s",
+      "[RETRY] Ticket: T0111 | Retry: 0 | Wait: 0.056152s",
+      "[RETRY] Ticket: T0155 | Retry: 0 | Wait: 0.046087s",
+      "[RETRY] Ticket: T0100 | Retry: 0 | Wait: 0.050274s",
+      "[RETRY] Ticket: T0068 | Retry: 0 | Wait: 0.045372s",
+      "[RETRY] Ticket: T0135 | Retry: 0 | Wait: 0.047733s",
+      "[RETRY] Ticket: T0009 | Retry: 0 | Wait: 0.051317s"
+    ]
+  },
+  "final_few_shot": {
+    "rows": 164,
+    "classified": 147,
+    "correct": 147,
+    "accuracy": 1.0,
+    "total_tokens": 17044,
+    "tokens_per_classified_ticket": 115.94557823129252,
+    "status_counts": {
+      "classified_json": 135,
+      "classified_keyword": 12,
+      "flagged_invalid_output": 9,
+      "skipped_empty": 4,
+      "flagged_long": 4
+    },
+    "routing_counts": {
+      "support_queue": 102,
+      "security_team": 34,
+      "human_review": 17,
+      "premium_desk": 11
+    },
+    "priority_counts": {
+      "NORMAL": 119,
+      "HIGH": 45
+    },
+    "confusion_categories": [
+      "billing",
+      "delivery",
+      "technical",
+      "fraud"
+    ],
+    "confusion_matrix": [
+      [
+        38,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        36,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        39,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        34
+      ]
+    ],
+    "audit": {
+      "random_seed": 42,
+      "token_budget": 100000,
+      "system_prompt_estimated_tokens": 81,
+      "successful_model_calls": 156,
+      "model_attempts": 175,
+      "transient_errors_recovered": 19,
+      "retry_events": [
+        {
+          "ticket_id": "T0002",
+          "retry_number": 0,
+          "wait_seconds": 0.05299283498072355
+        },
+        {
+          "ticket_id": "T0116",
+          "retry_number": 0,
+          "wait_seconds": 0.04531263444028334
+        },
+        {
+          "ticket_id": "T0153",
+          "retry_number": 0,
+          "wait_seconds": 0.04843786647961399
+        },
+        {
+          "ticket_id": "T0039",
+          "retry_number": 0,
+          "wait_seconds": 0.047790134226860286
+        },
+        {
+          "ticket_id": "T0152",
+          "retry_number": 0,
+          "wait_seconds": 0.05420589017705016
+        },
+        {
+          "ticket_id": "T0043",
+          "retry_number": 0,
+          "wait_seconds": 0.053458743592786385
+        },
+        {
+          "ticket_id": "T0111",
+          "retry_number": 0,
+          "wait_seconds": 0.05615224459631057
+        },
+        {
+          "ticket_id": "T0155",
+          "retry_number": 0,
+          "wait_seconds": 0.0460867354078677
+        },
+        {
+          "ticket_id": "T0100",
+          "retry_number": 0,
+          "wait_seconds": 0.050274022746065884
+        },
+        {
+          "ticket_id": "T0068",
+          "retry_number": 0,
+          "wait_seconds": 0.04537246524297588
+        },
+        {
+          "ticket_id": "T0135",
+          "retry_number": 0,
+          "wait_seconds": 0.047732974685045046
+        },
+        {
+          "ticket_id": "T0009",
+          "retry_number": 0,
+          "wait_seconds": 0.05131694110129203
+        },
+        {
+          "ticket_id": "T0067",
+          "retry_number": 0,
+          "wait_seconds": 0.0453316996210483
+        },
+        {
+          "ticket_id": "T0106",
+          "retry_number": 0,
+          "wait_seconds": 0.047485470633583104
+        },
+        {
+          "ticket_id": "T0097",
+          "retry_number": 0,
+          "wait_seconds": 0.05312355547224404
+        },
+        {
+          "ticket_id": "T0003",
+          "retry_number": 0,
+          "wait_seconds": 0.05181176850754021
+        },
+        {
+          "ticket_id": "T0019",
+          "retry_number": 0,
+          "wait_seconds": 0.047755507775508715
+        },
+        {
+          "ticket_id": "T0086",
+          "retry_number": 0,
+          "wait_seconds": 0.05236582104844886
+        },
+        {
+          "ticket_id": "T0065",
+          "retry_number": 0,
+          "wait_seconds": 0.05511788070847284
+        }
+      ],
+      "permanent_model_errors": 0,
+      "redaction_counts": {
+        "email": 55,
+        "phone": 91,
+        "order_id": 132,
+        "total": 278
+      },
+      "pii_remaining": {
+        "email": 0,
+        "phone": 0,
+        "order_id": 0
+      },
+      "all_prompt_pii_checks_passed": true,
+      "budget_policy": "Admit only if usage so far is below budget; last response may cross it.",
+      "budget_overshoot_tokens": 0
+    },
+    "retry_log": [
+      "[RETRY] Ticket: T0002 | Retry: 0 | Wait: 0.052993s",
+      "[RETRY] Ticket: T0116 | Retry: 0 | Wait: 0.045313s",
+      "[RETRY] Ticket: T0153 | Retry: 0 | Wait: 0.048438s",
+      "[RETRY] Ticket: T0039 | Retry: 0 | Wait: 0.047790s",
+      "[RETRY] Ticket: T0152 | Retry: 0 | Wait: 0.054206s",
+      "[RETRY] Ticket: T0043 | Retry: 0 | Wait: 0.053459s",
+      "[RETRY] Ticket: T0111 | Retry: 0 | Wait: 0.056152s",
+      "[RETRY] Ticket: T0155 | Retry: 0 | Wait: 0.046087s",
+      "[RETRY] Ticket: T0100 | Retry: 0 | Wait: 0.050274s",
+      "[RETRY] Ticket: T0068 | Retry: 0 | Wait: 0.045372s",
+      "[RETRY] Ticket: T0135 | Retry: 0 | Wait: 0.047733s",
+      "[RETRY] Ticket: T0009 | Retry: 0 | Wait: 0.051317s",
+      "[RETRY] Ticket: T0067 | Retry: 0 | Wait: 0.045332s",
+      "[RETRY] Ticket: T0106 | Retry: 0 | Wait: 0.047485s",
+      "[RETRY] Ticket: T0097 | Retry: 0 | Wait: 0.053124s",
+      "[RETRY] Ticket: T0003 | Retry: 0 | Wait: 0.051812s",
+      "[RETRY] Ticket: T0019 | Retry: 0 | Wait: 0.047756s",
+      "[RETRY] Ticket: T0086 | Retry: 0 | Wait: 0.052366s",
+      "[RETRY] Ticket: T0065 | Retry: 0 | Wait: 0.055118s"
+    ]
+  },
+  "prompt_comparison": "Zero-shot classifies 147 tickets at 85.71% accuracy using 9,400 tokens (63.95 per classified ticket); few-shot reaches 100.00% with 17,044 tokens (115.95 per classified ticket). The extra 7,644 tokens correct 21 decisions (364.00 extra tokens per corrected decision), eliminating 11 fraud-to-billing and 10 technical-to-billing errors. Those extra tokens are worth paying for when missing account fraud or sending an app issue to billing costs more than the added prompt tokens, while neither prompt removes the 9 invalid outputs that still need human review.",
+  "budget_note": "The 6000-token demonstration follows the specified usage-so-far rule, so its last admitted response can cross 6000. Every later eligible ticket makes no call and goes to human review.",
+  "routing_note": "classified_json and classified_keyword are rule-validated model outputs, not guarantees of truth. Rejected input, invalid output and budget-exhausted tickets go to human_review with NORMAL priority; fraud goes to security_team before Premium routing is considered. Missing segment rows are non-premium."
+}

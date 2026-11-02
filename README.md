@@ -1,579 +1,633 @@
 # Instamart Customer Intelligence & Support Copilot
 
-An enterprise-grade Customer Intelligence & Support Copilot built for Swiggy Instamart's quick-commerce operations across six metro cities (Bengaluru, Chennai, Delhi, Hyderabad, Mumbai, Pune). The system addresses three critical leadership challenges: untrusted raw data exports, undetected customer churn/lapse, and overwhelming volumes of unclassified customer support tickets.
-
-The copilot is implemented in Python across four tightly integrated, modular components:
-- **Part A (`part_a/` & `sql/`)**: Clean, store, and query messy transactional data; validates against SQLite 3.
-- **Part B (`part_b/`)**: RFM customer segmentation (K-Means & PCA) and leakage-free customer lapse prediction.
-- **Part C (`part_c/`)**: Safe, resilient, budget-guarded support ticket triage and dynamic routing.
-- **Part D (`part_d/`)**: Retrieval-Augmented Generation (RAG) policy assistant and ReAct refund agent with crash-resilient state recovery.
-
----
-
 ## Overview
 
-In fast-paced quick-commerce delivery, high operational speed often generates dirty telemetry: unparseable amounts, negative delivery times, pending duplicate records, and inconsistent user profiles. Concurrently, retaining frequent and high-value shoppers requires proactive machine learning intervention before order lapses occur. Finally, high customer support ticket volumes require strict PII protection, resilient LLM interactions, cost-bounded token budgets, and automated policy-grounded dispute resolution.
+Complete offline solution for the four connected capstone parts. All data, policies and prices are synthetic and fictional; the brand name only frames the assignment. All monetary amounts use INR. Python 3.11 or newer and SQLite 3.25 or newer are required.
 
-This repository provides an end-to-end reproducible solution using only standard open-source libraries (`pandas`, `numpy`, `scikit-learn`, `joblib`, and `sqlite3`), fully decoupled from proprietary or paid APIs using the deterministic offline engine `mock_llm.py`.
+Part A cleans the exports and creates the analytical database. Part B consumes the clean CSVs to segment customers and predict lapse. Part C uses Part B segments to route privacy-masked support tickets. Part D queries Part A's database and reuses policy retrieval for a bounded, resumable refund workflow. All language-model calls go through the unmodified `mock_llm.py`; no API key, account or network connection is needed to run the project once its Python dependencies are installed.
 
-### Repository Structure
+The four named folders each contain a complete notebook with explanations, stepwise executable code, actual text outputs and assertions:
+
+- [Part A notebook](part_a/Part_A_Data_Foundation.ipynb): audit, cleaning, SQLite, seven SQL queries and exploratory statistics.
+- [Part B notebook](part_b/Part_B_Customer_Segments_and_Lapse_Prediction.ipynb): RFM, clustering, PCA, feature engineering, tuning, balancing, interpretation and retention.
+- [Part C notebook](part_c/Part_C_Support_Ticket_Triage_with_Guardrails.ipynb): input checks, privacy, prompts, retries, validation, budget and routing.
+- [Part D notebook](part_d/Part_D_Policy_RAG_and_Refund_Agent.ipynb): policy retrieval, evaluation, tools, scenarios, safety limits and crash recovery.
 
 ```text
 .
-├── generate_data.py               # Deterministic synthetic data generator (unmodified)
-├── mock_llm.py                    # Deterministic offline LLM stand-in (unmodified)
-├── requirements.txt               # Pinned Python package dependencies
-├── .gitignore                     # Git ignore rules (.venv, caches, env files)
-├── README.md                      # Comprehensive project documentation
-├── run_pipeline.py                # Master pipeline runner (A -> B -> C -> D)
+├── README.md                         # All findings and reproduction instructions
+├── generate_data.py                  # Supplied, unmodified deterministic generator
+├── mock_llm.py                       # Supplied, unmodified offline model
+├── requirements.txt                  # Frozen execution environment
+├── requirements-notebooks.txt        # Optional interactive notebook tools
+├── .gitignore
+├── run_pipeline.py                   # All four parts, optionally regenerating raw data
+├── part_a/                           # Data Foundation: sources and Part A notebook
+├── part_b/                           # Segments and Lapse: sources and Part B notebook
+├── part_c/                           # Ticket Triage: sources and Part C notebook
+├── part_d/                           # Policy RAG and Refunds: sources and Part D notebook
+├── sql/queries.sql                   # Q1-Q7 SQL
 ├── data/
-│   ├── raw/                       # Generated raw CSV and policy files
-│   ├── clean/                     # Clean analytical tables (customers, products, orders)
-│   ├── policies/                  # Policy documents in plain text
-│   └── instamart.db               # SQLite database with clean analytical tables
-├── sql/
-│   └── queries.sql                # Analytical SQL queries Q1 to Q7
+│   ├── raw/                          # Six generated CSV inputs
+│   ├── clean/                        # customers.csv, products.csv, orders.csv
+│   ├── policies/                     # Five policy .txt documents
+│   └── instamart.db                   # customers, products, orders tables
 ├── outputs/
-│   ├── customer_segments.csv      # K-Means customer RFM clusters with Premium flag
-│   ├── lapse_model.joblib         # Tuned customer lapse prediction model
-│   ├── retention_list.csv         # Top 10 at-risk premium customers
-│   ├── triage_results.csv         # Final routed ticket decisions (few-shot)
-│   ├── triage_budget_demo.csv     # Bounded token budget demonstration output
-│   ├── agent_runs.jsonl           # Execution traces for all refund agent scenarios
-│   └── refund_ledger.jsonl        # Immutable ledger of issued and escalated refunds
-├── state/                         # Agent run checkpoints for crash recovery
-├── part_a/                        # Part A module: Data Foundation
-│   ├── audit.py                   # Raw data audit and telemetry analysis
-│   ├── clean.py                   # Documented deterministic data cleaning pipeline
-│   ├── db.py                      # SQLite storage engine and query runner
-│   ├── validate.py                # Checkpoint validation assertions
-│   ├── eda.py                     # Exploratory analysis and correlation analysis
-│   └── run_part_a.py              # CLI runner for Part A
-├── part_b/                        # Part B module: Segments & Lapse Prediction
-│   ├── rfm.py                     # RFM metric calculation
-│   ├── clustering.py              # K-Means clustering, silhouette analysis, PCA
-│   ├── lapse_modeling.py          # Leakage-free cohort engineering & model tuning
-│   └── run_part_b.py              # CLI runner for Part B
-├── part_c/                        # Part C module: Ticket Triage with Guardrails
-│   ├── guardrails.py              # Input token guardrails & PII regex redaction
-│   ├── classifier.py              # Prompts, retry with jitter, response validation
-│   ├── triage_pipeline.py         # Budget controller, routing, and ticket pipeline
-│   └── run_part_c.py              # CLI runner for Part C
-└── part_d/                        # Part D module: Policy RAG & Refund Agent
-    ├── rag.py                     # Document chunking, TF-IDF retriever, RAG QA
-    ├── tools.py                   # Agent tool definitions, specs, and refund ledger
-    ├── agent.py                   # ReAct execution loop, safety limits, checkpoint state
-    └── run_part_d.py              # CLI runner for Part D
+│   ├── customer_segments.csv
+│   ├── lapse_model.joblib
+│   ├── retention_list.csv
+│   ├── triage_results.csv
+│   ├── triage_budget_demo.csv
+│   ├── agent_runs.jsonl              # Exactly seven current scenario runs
+│   ├── agent_demos.jsonl             # Token, timeout and crash/resume results
+│   ├── refund_ledger.jsonl           # Local simulated actions, with timestamps
+│   ├── part_a_report.json ... part_d_report.json
+│   ├── sql_q1.csv ... sql_q7.csv
+│   ├── notebook_execution_report.json
+│   └── verification_report.json
+├── state/                            # Saved agent checkpoints
+└── scripts/
+    ├── run_notebooks.py              # Dependency-free execution and output persistence
+    ├── write_readme.py               # Rebuild this README from measured results
+    └── verify_project.py             # Reference, artifact and regression checks
 ```
 
----
+The original setup already uses branch `main`. Submission must use the public repository's `main` branch and include the regenerated artifacts and notebooks. The submission URL is `https://github.com/htg-pro/instamart-copilot-capstone/tree/main`; local changes must be committed and pushed before that URL includes them. No charts, screenshots, PDFs, slides, video or audio are generated or required.
 
 ## Reproduce
 
-Follow these numbered shell commands from repository clone to execute the entire pipeline from scratch:
+From the repository root, with Python 3.11+ available as `python`, run these numbered commands in order. Dependency installation needs access to a package index or a local wheel cache; execution itself is offline.
 
 ```bash
-# 1. Create a clean virtual environment using Python 3.11 or newer
-python3.12 -m venv .venv
+# 1. Create an isolated environment
+python -m venv .venv
 
-# 2. Activate the virtual environment
+# 2. Activate it (Linux/macOS)
 source .venv/bin/activate
 
-# 3. Install required open-source dependencies
-pip install -r requirements.txt
+# 3. Install the frozen dependencies
+python -m pip install -r requirements.txt
 
-# 4. Generate the synthetic data and policy documents
+# 4. Generate the unmodified supplied data
 python generate_data.py
 
-# 5. Execute Part A: Clean data, store in SQLite, run queries, and validate checkpoints
+# 5. Audit, clean, store, query and validate Part A
 python part_a/run_part_a.py
 
-# 6. Execute Part B: Build RFM segments, cluster, tune lapse models, and export retention list
+# 6. Segment, tune, evaluate and persist Part B
 python part_b/run_part_b.py
 
-# 7. Execute Part C: Run support ticket triage, PII redaction, token budget demo, and routing
+# 7. Compare prompts, demonstrate the budget and export Part C
 python part_c/run_part_c.py
 
-# 8. Execute Part D: Evaluate Policy RAG, execute ReAct refund scenarios, and test crash-resume
+# 8. Evaluate policies, run seven cases and demonstrate recovery in Part D
 python part_d/run_part_d.py
 
-# (Optional) Run the complete end-to-end pipeline in one command:
-python run_pipeline.py
+# 9. Execute all notebook cells and save actual text outputs
+python scripts/run_notebooks.py
+
+# 10. Refresh the README from those measured results
+python scripts/write_readme.py
+
+# 11. Verify required artifacts, references, regressions and notebook outputs
+python scripts/verify_project.py
 ```
 
----
+The generator's last line is exactly `generated: customers=1200 products=40 orders_raw=13084 tickets=164`. Part A's standalone validation prints `ALL CHECKPOINTS PASSED`; the final project verifier prints `ALL PROJECT CHECKS PASSED`. `requirements.txt` records `pip freeze` from the working environment. `.gitignore` excludes `.env`, `.venv/`, `__pycache__/` and notebook editor checkpoints.
 
-## Part A: Data Foundation: Clean, Store, Query
+Alternatively, `python run_pipeline.py --generate` performs steps 4-8. Use `python run_pipeline.py` if the supplied raw files already exist. Notebook execution reruns the respective part workflows and refreshes the same output paths. Batch agent logs and named checkpoints are reproducible; timestamps and elapsed times naturally vary, and unrelated old ledger/checkpoint records are preserved.
 
-### 1. Raw Data Audit
+For interactive notebooks, optionally run `python -m pip install -r requirements-notebooks.txt` and `python -m notebook`, or select this environment as the kernel in VS Code. Run all cells from top to bottom in A, B, C, D order. The bundled notebook executor needs no extra notebook libraries and supports these plain-Python, text-output notebooks; it is not a general executor for IPython magics or widget notebooks. On Windows, use `.venv\Scripts\activate` in Command Prompt for step 2.
 
-The raw exports were inspected for shape, data types, and missingness. `data/raw/tickets.csv` was ingested with `keep_default_na=False` to ensure empty ticket texts remain empty strings.
+## Part A
 
-| Table | Shape | Column Name | Dtype | Missing Count | Missing Pct (%) |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **customers.csv** | (1200, 5) | customer_id | object | 0 | 0.00% |
-| | | city | object | 0 | 0.00% |
-| | | signup_date | object | 0 | 0.00% |
-| | | age | float64 | 61 | 5.08% |
-| | | gender | object | 30 | 2.50% |
-| **products.csv** | (40, 4) | product_id | object | 0 | 0.00% |
-| | | product_name | object | 0 | 0.00% |
-| | | category | object | 0 | 0.00% |
-| | | price_inr | int64 | 0 | 0.00% |
-| **orders.csv** | (13084, 9) | order_id | object | 0 | 0.00% |
-| | | customer_id | object | 0 | 0.00% |
-| | | product_id | object | 0 | 0.00% |
-| | | quantity | int64 | 0 | 0.00% |
-| | | order_ts | object | 0 | 0.00% |
-| | | status | object | 0 | 0.00% |
-| | | discount_pct | int64 | 0 | 0.00% |
-| | | order_amount | object | 0 | 0.00% |
-| | | delivery_minutes | float64 | 2541 | 19.42% |
+### Raw audit
 
-#### Checkpoint Audit Metrics
+Pandas reads the three raw analytical tables. Tickets are read with `keep_default_na=False` wherever they are used, preserving empty text. Missing percentages and actual data types are reported below; pandas parses `N/A` as missing, while `error` remains a nonnumeric string. Both count in the separate 120-value nonnumeric-amount audit.
 
-| Metric Description | Count / Value | Reference Value | Match Status |
-| :--- | :--- | :--- | :--- |
-| Raw `orders.csv` rows | 13,084 | 13,084 | Exact Match |
-| Exact duplicate rows in `orders.csv` | 119 | 119 | Exact Match |
-| Rows with status `pending` in `orders.csv` | 656 | 656 | Exact Match |
-| Distinct `order_id` values | 12,309 | 12,309 | Exact Match |
-| Non-numeric `order_amount` entries | 120 | 120 | Exact Match |
-| Negative `delivery_minutes` entries | 106 | 106 | Exact Match |
-| Blank `delivery_minutes` entries | 2,541 | 2,541 | Exact Match |
-| Blank `age` in `customers.csv` | 61 | 61 | Exact Match |
-| Ages outside 10–100 in `customers.csv` | 6 | 6 | Exact Match |
-| Distinct raw city spellings | 24 | 24 | Exact Match |
-| Distinct raw gender spellings (non-blank) | 10 | 10 | Exact Match |
-| Blank genders in `customers.csv` | 30 | 30 | Exact Match |
+| Table | Shape | Column | dtype | Missing | Missing % |
+| --- | --- | --- | --- | --- | --- |
+| customers | 1200 × 5 | customer_id | str | 0 | 0.00 |
+| customers | 1200 × 5 | city | str | 0 | 0.00 |
+| customers | 1200 × 5 | signup_date | str | 0 | 0.00 |
+| customers | 1200 × 5 | age | float64 | 61 | 5.08 |
+| customers | 1200 × 5 | gender | str | 30 | 2.50 |
+| products | 40 × 4 | product_id | str | 0 | 0.00 |
+| products | 40 × 4 | product_name | str | 0 | 0.00 |
+| products | 40 × 4 | category | str | 0 | 0.00 |
+| products | 40 × 4 | price_inr | int64 | 0 | 0.00 |
+| orders | 13084 × 9 | order_id | str | 0 | 0.00 |
+| orders | 13084 × 9 | customer_id | str | 0 | 0.00 |
+| orders | 13084 × 9 | product_id | str | 0 | 0.00 |
+| orders | 13084 × 9 | quantity | int64 | 0 | 0.00 |
+| orders | 13084 × 9 | order_ts | str | 0 | 0.00 |
+| orders | 13084 × 9 | status | str | 0 | 0.00 |
+| orders | 13084 × 9 | discount_pct | int64 | 0 | 0.00 |
+| orders | 13084 × 9 | order_amount | str | 53 | 0.41 |
+| orders | 13084 × 9 | delivery_minutes | float64 | 2541 | 19.42 |
 
----
+| Raw audit checkpoint | Measured count |
+| --- | --- |
+| raw_order_rows | 13084 |
+| exact_duplicates | 119 |
+| pending_rows | 656 |
+| distinct_order_ids | 12309 |
+| non_numeric_amounts | 120 |
+| negative_delivery_times | 106 |
+| blank_delivery_times | 2541 |
+| blank_ages | 61 |
+| ages_outside_range | 6 |
+| distinct_raw_cities | 24 |
+| distinct_raw_genders | 10 |
+| blank_genders | 30 |
 
-### 2. Cleaning Customers
+### Cleaning rules and actual changes
 
-Cleaning rules applied in `part_a/clean.py`:
-1. **City Standardisation**: Stripped leading/trailing whitespace and applied title-casing (`.str.strip().str.title()`). Exactly 6 clean cities remain: Pune (227), Delhi (210), Bengaluru (197), Chennai (191), Hyderabad (191), Mumbai (184).
-2. **Gender Normalisation**: Mapped case variants to `male`, `female`, or `unknown` (missing/blank mapped to `unknown`). Counts: female (610), male (560), unknown (30).
-3. **Age Validation & City-Median Imputation**: Treated 6 impossible age values (< 10 or > 100: -4, 0, 150, 200, 280, 999) as missing, and filled all 67 missing ages with the median age of the customer's respective city using `.groupby('city')['age'].transform('median')`. Post-cleaning missing ages: 0; min age: 18; max age: 60.
-4. **Datetime Conversion**: Converted `signup_date` to standard ISO format (`YYYY-MM-DD`).
+Cities are stripped and title-cased; genders map to male/female/unknown. Ages outside 10-100 become missing, then all missing ages use the valid city median from `groupby` and `transform`. Fractional medians are preserved. Signup dates become datetimes.
 
----
+Orders follow the required sequence: parse timestamps; remove exact duplicates; select the entire latest row per order id; parse and reconstruct missing amounts from `round(price_inr * quantity * (1 - discount_pct / 100), 2)`; replace negative delivery durations with missing; impute missing completed durations by completed-product-category median; leave cancelled durations missing. Selecting a whole row avoids accidentally borrowing a nonmissing field from an older record. Products are unchanged.
 
-### 3. Cleaning Orders
+| Rule / stage | Rows or values affected |
+| --- | --- |
+| city_values_standardized | 476 |
+| gender_values_standardized | 950 |
+| blank_gender_to_unknown | 30 |
+| invalid_ages_to_missing | 6 |
+| ages_imputed_city_median | 67 |
+| signup_dates_parsed | 1200 |
+| order_timestamps_parsed | 13084 |
+| exact_duplicate_rows_removed | 119 |
+| older_order_records_removed | 656 |
+| amounts_reconstructed | 112 |
+| negative_delivery_to_missing | 105 |
+| completed_delivery_imputed | 774 |
+| cancelled_delivery_left_missing | 1199 |
+| products_changed | 0 |
 
-Cleaning rules applied in exact documented order:
-1. **Datetime Conversion**: Converted `order_ts` to datetime objects.
-2. **Exact Deduplication**: Removed 119 exact duplicate rows.
-3. **Latest Record Retention**: For orders appearing multiple times across statuses (e.g. earlier `pending` state and later `completed`/`cancelled` state), sorted by `order_ts` and kept the latest record per `order_id` (resolved 656 pending records).
-4. **Amount Imputation**: Converted `order_amount` to numeric (coercing planted `'N/A'` and `'error'` strings to NaN). Imputed all 120 missing amounts from catalog price:
-   $$\text{order\_amount} = \text{round}\left(\text{price\_inr} \times \text{quantity} \times \left(1 - \frac{\text{discount\_pct}}{100}\right), 2\right)$$
-5. **Delivery Duration Imputation**: Flagged 106 negative `delivery_minutes` (-10) as missing. For completed orders, filled missing delivery times with the median delivery duration of that order's product category among completed orders. Cancelled orders were intentionally left with missing delivery duration because cancelled orders were never delivered.
+Raw amounts/negative durations include duplicates; therefore 120 raw nonnumeric amounts become 112 reconstructions, and 106 raw negative durations become 105 replacements after deduplication. The 774 completed-duration imputations include blanks and invalid durations.
 
-#### Post-Cleaning Orders Verification
+| City | Age imputation median |
+| --- | --- |
+| Bengaluru | 42.0 |
+| Chennai | 39.0 |
+| Delhi | 43.0 |
+| Hyderabad | 37.5 |
+| Mumbai | 38.5 |
+| Pune | 39.0 |
 
-| Metric | Value | Reference Checkpoint |
-| :--- | :--- | :--- |
-| Clean order rows | 12,309 | 12,309 (one per order_id) |
-| Completed orders | 11,110 | 11,110 |
-| Cancelled orders | 1,199 | 1,199 |
-| Pending orders | 0 | 0 |
-| Missing `order_amount` | 0 | 0 |
-| Missing `delivery_minutes` (completed) | 0 | 0 |
-| Missing `delivery_minutes` (cancelled) | 1,199 | 1,199 |
-| Sum of completed `order_amount` | INR 2,998,668.80 | INR 2,998,668.80 |
+| Category | Completed delivery imputation median (minutes) |
+| --- | --- |
+| Dairy | 25.0 |
+| Electronics | 25.0 |
+| Grocery | 25.0 |
+| Personal Care | 25.5 |
+| Snacks | 25.0 |
 
-The validation script `part_a/validate.py` executes 12 assertions across these metrics and outputs:
+| City | Clean customer count |
+| --- | --- |
+| Pune | 227 |
+| Delhi | 210 |
+| Bengaluru | 197 |
+| Chennai | 191 |
+| Hyderabad | 191 |
+| Mumbai | 184 |
+
+| Gender | Clean customer count |
+| --- | --- |
+| female | 610 |
+| male | 560 |
+| unknown | 30 |
+
+### Storage and validation
+
+Clean tables are written to `data/clean/` and SQLite tables `customers`, `products`, `orders` in `data/instamart.db`. Timestamps are stored as `YYYY-MM-DD HH:MM:SS`. `part_a/validate.py` checks customer distributions, valid ages, order identity/status counts, missingness and revenue; `part_a/report.py` additionally checks every SQL reference.
+
+| Clean checkpoint | Measured result |
+| --- | --- |
+| Customers / products / orders | 1,200 / 40 / 12,309 |
+| Completed / cancelled / pending | 11,110 / 1,199 / 0 |
+| Unique order ids | 12,309 |
+| Missing ages / age range | 0 / 18-60 |
+| Missing amounts | 0 |
+| Missing completed / cancelled delivery | 0 / 1,199 |
+| Completed revenue | INR 2,998,668.80 |
+| Standalone validator | ALL CHECKPOINTS PASSED |
+
+### SQL business questions
+
+All seven statements in `sql/queries.sql` run with `pd.read_sql_query`. Revenue and spend include completed orders only. Results are also exported as `outputs/sql_q1.csv` through `sql_q7.csv`.
+
+| Query | Technique and result |
+| --- | --- |
+| Q1 | WHERE amount > INR 500, HAVING filtered spend > INR 8,000: 30 customers |
+| Q2 | Three-table city/category join: 30 rows, total INR 2,998,668.80; largest Bengaluru/Electronics INR 233,909.45 |
+| Q3 | Scalar subquery, price above catalogue average: 11 products |
+| Q4 | LEFT JOIN, no completed orders: 25 customers |
+| Q5 | Two CTEs, spend above customer average: 550 customers; average INR 2,552.06 |
+| Q6 | City RANK/DENSE_RANK/ROW_NUMBER: 1,175 rows; 8 rank/row-number differences |
+| Q7 | Daily revenue with cumulative SUM OVER: 183 days; final INR 2,998,668.80 |
+
+| City | Top customer | Completed spend (INR) |
+| --- | --- | --- |
+| Bengaluru | C0082 | 12,856.20 |
+| Chennai | C0930 | 10,151.40 |
+| Delhi | C0291 | 13,742.60 |
+| Hyderabad | C0743 | 12,730.05 |
+| Mumbai | C0693 | 14,766.55 |
+| Pune | C0426 | 10,377.10 |
+
+Ties share RANK values while ROW_NUMBER assigns distinct consecutive positions, so eight rows have different rank and row-number values.
+
+### pandas cross-check and exploratory statistics
+
+The city/category pivot uses `pd.pivot_table(..., margins=True)` and its INR 2,998,668.80 grand total equals Q2. Named aggregation computes city sum, mean and count:
+
+| City | Sum (INR) | Mean (INR) | Completed count |
+| --- | --- | --- | --- |
+| Bengaluru | 523,643.40 | 276.47 | 1894 |
+| Chennai | 463,629.15 | 272.72 | 1700 |
+| Delhi | 502,829.80 | 243.62 | 2064 |
+| Hyderabad | 528,589.90 | 284.95 | 1855 |
+| Mumbai | 479,058.50 | 297.00 | 1613 |
+| Pune | 500,918.05 | 252.48 | 1984 |
+
+| Amount statistic | Measured result |
+| --- | --- |
+| mean | 269.91 |
+| median | 135.00 |
+| skewness | 4.61 |
+| q1 | 64.80 |
+| q3 | 297.00 |
+| iqr | 232.20 |
+| lower_fence | -283.50 |
+| upper_fence | 645.30 |
+| lower_outliers | 0 |
+| upper_outliers | 897 |
+
+Correlation matrix over completed orders:
+
+| Feature | order_amount | discount_pct | quantity | delivery_minutes |
+| --- | --- | --- | --- | --- |
+| order_amount | 1.0000 | -0.0951 | 0.0873 | -0.0031 |
+| discount_pct | -0.0951 | 1.0000 | -0.0004 | -0.0098 |
+| quantity | 0.0873 | -0.0004 | 1.0000 | -0.0126 |
+| delivery_minutes | -0.0031 | -0.0098 | -0.0126 | 1.0000 |
+
+Exploratory interpretation (under 200 words): The data describes synthetic quick-commerce orders for 1,200 customers across six cities during April-September 2025. Completed revenue is INR 2,998,668.80 across 11,110 orders. Mean order amount is INR 269.91 versus median INR 135.00, with skewness 4.61: expensive baskets stretch the right tail. Q1 is INR 64.80 and Q3 is INR 297.00; IQR fences are INR -283.50 and INR 645.30. There are 897 upper outliers and no lower outliers. High-value electronics baskets need contextual review rather than automatic removal, while planted invalid ages, malformed amounts and negative delivery times need explicit cleaning. Amount and discount have the largest absolute correlation, about -0.095, followed by amount and quantity at +0.087. Both are weak associations; correlation of this size does not establish causation. City/category revenue and customer activity support the later segmentation and retention workflow.
+
+## Part B
+
+### RFM, clustering and business segments
+
+Only completed orders enter RFM, as of `2025-10-01 00:00:00`. Recency uses whole elapsed days, frequency counts distinct orders, and monetary sums completed INR spend.
+
+| RFM statistic | Measured value |
+| --- | --- |
+| customers | 1175 |
+| recency_median | 19.00 |
+| recency_min | 0 |
+| recency_max | 180 |
+| frequency_mean | 9.46 |
+| frequency_max | 33 |
+| monetary_mean_inr | 2,552.06 |
+| monetary_max_inr | 14,766.55 |
+
+The RFM columns are standardized with StandardScaler. Every K from 2-8 uses `KMeans(n_clusters=K, n_init=10, random_state=42)`:
+
+| K | Inertia | Silhouette |
+| --- | --- | --- |
+| 2 | 1,820.8 | 0.465 |
+| 3 | 1,268.2 | 0.445 |
+| 4 | 743.1 | 0.526 |
+| 5 | 617.4 | 0.480 |
+| 6 | 503.2 | 0.482 |
+| 7 | 408.5 | 0.416 |
+| 8 | 366.5 | 0.412 |
+
+Choose K=4: the large inertia reduction from K=3 to K=4 is followed by smaller improvements, and K=4 has the strongest silhouette among the actionable choices K=3,4,5. Its four profiles support distinct occasional-buyer, premium, frequent-shopper and win-back campaigns. K-means inertia is the within-cluster squared-distance objective; adding centres increases flexibility, so the best achievable inertia cannot increase and the observed K=8 value is lower than K=2. Lower inertia alone cannot choose K because ever-smaller clusters may be less interpretable and less well separated. Cluster numbers are arbitrary labels and have no numerical ordering.
+
+| ID | Business segment | Size | Mean recency (days) | Mean frequency | Mean monetary (INR) | Action | Premium |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | Occasional / Regular Buyers | 436 | 28.86 | 3.77 | 1,057.62 | Suggest relevant replenishment bundles to increase purchase frequency. | False |
+| 1 | High-Value Premium | 138 | 24.12 | 6.77 | 7,129.70 | Offer a priority support desk and personalised high-value bundles. | True |
+| 2 | Active Frequent Shoppers | 419 | 8.77 | 19.40 | 3,410.02 | Reward repeat purchases with loyalty benefits and replenishment reminders. | False |
+| 3 | Dormant / At-Risk | 182 | 109.04 | 2.20 | 685.99 | Send a time-limited win-back offer and investigate service problems. | False |
+
+PCA with two components explains 0.634279 and 0.218038, total 0.852316. `outputs/customer_segments.csv` has customer_id, recency, frequency, monetary, segment_id, segment_name, is_premium; Premium is true only for the highest-mean-monetary segment.
+
+### Lapse cohort, features and training isolation
+
+Cutoff: `2025-09-01 00:00:00`. The cohort contains customers with at least one completed order before the cutoff. `lapsed=1` means no completed order during September 1-30; the target window ends exclusively at October 1. Orders after September cannot change this label.
+
+Features are recency, frequency, monetary, mean completed discount, final-order cancellation rate, mean completed delivery minutes, favourite product category, city, age, gender and tenure days. Cancellation rate divides cancelled orders by completed plus cancelled orders before cutoff. The latest order entering features is `2025-08-31 22:35:45`. No order from September 1 onwards enters a feature, and no whole-window segment label is a feature. Code asserts no missing feature values.
+
+`train_test_split(test_size=0.2, stratify=y, random_state=42)` is shared by both models. Numeric scaling and `OneHotEncoder(drop='first', handle_unknown='ignore')` live inside each Pipeline; GridSearchCV fits them separately on training folds. No encoder, scaler or resampler sees test rows. Favourite category, city and gender each use k-1 nominal columns.
+
+| Cohort / split checkpoint | Value |
+| --- | --- |
+| Cohort | 1156 |
+| Lapsed | 443 (38.32%) |
+| Train / test | 924 / 232 |
+| Training not-lapsed / lapsed | 570 / 354 |
+| Test not-lapsed / lapsed | 143 / 89 |
+| Fitted training frequency mean | 8.114719 |
+| Full-cohort frequency mean | 8.028547 |
+| Missing features | 0 |
+
+The scaler mean uses training customers only; the full-cohort mean also includes held-out customers, so random sampling makes them differ.
+
+### Tune on training data, then evaluate the untouched test set
+
+LogisticRegression uses max_iter=1000, C in {0.01, 0.1, 1, 10, 100}, five-fold CV and F1 scoring: 25 CV fits plus refit. RandomForestClassifier uses 100 trees, random_state=42, max_depth in {3, 5, 8}, min_samples_leaf in {5, 10, 20}, five-fold CV and F1 scoring: 45 CV fits plus refit. Both searches finish before test evaluation. Confusion matrices use rows true [0,1], columns predicted [0,1], in the form [[TN,FP],[FN,TP]]. All precision, recall and F1 values concern lapsed=1; zero_division=0 is used.
+
+| Model | Best parameters | Best CV F1 |
+| --- | --- | --- |
+| Logistic regression | {"clf__C": 100} | 0.6506 |
+| Random forest | {"clf__max_depth": 8, "clf__min_samples_leaf": 10} | 0.6865 |
+
+| Test model | Confusion matrix | Accuracy | Precision (1) | Recall (1) | F1 (1) |
+| --- | --- | --- | --- | --- | --- |
+| Always not lapsed | [[143, 0], [89, 0]] | 0.6164 | 0.0000 | 0.0000 | 0.0000 |
+| Tuned logistic regression | [[111, 32], [31, 58]] | 0.7284 | 0.6444 | 0.6517 | 0.6480 |
+| Tuned random forest | [[111, 32], [32, 57]] | 0.7241 | 0.6404 | 0.6404 | 0.6404 |
+
+We select the tuned random forest because its training cross-validated F1 is highest (0.6865); the test set did not choose its parameters. On the untouched test set its lapsed-class F1 is 0.6404, precision is 0.6404 and recall is 0.6404. It misses 32 lapsing customers and wrongly targets 32 loyal customers at the default threshold. Missing a lapsing customer can lose repeat revenue, whereas an unnecessary retention offer costs discount spend and may annoy a loyal customer, so the team should validate campaign economics and a recall-oriented threshold on a separate validation set before deployment.
+Measured best C can differ from the reference's example C=1; the specified grid, cohort and positive-class performance criteria are preserved.
+
+### Class balance experiment
+
+Keep every original training row, then sample lapsed training rows with replacement and random_state=42 until both classes have 570 rows. This adds 216 duplicates to the 924 original rows. A cloned best logistic pipeline is refitted on the balanced training data; the original test set and tuned base models remain untouched.
+
+| Logistic training | Test precision (1) | Test recall (1) | Test F1 (1) |
+| --- | --- | --- | --- |
+| Original 570/354 | 0.6444 | 0.6517 | 0.6480 |
+| Balanced 570/570 | 0.5891 | 0.8539 | 0.6972 |
+
+Recall moves most (+0.2022); balancing increases the incentive to identify lapsing customers, but extra targeting can lower precision.
+
+### Interpretation, persistence and retention export
+
+Five largest random-forest feature importances:
+
+| Feature | Importance | Business reading |
+| --- | --- | --- |
+| monetary | 0.277830 | Earlier spending captures customer value and purchase intensity in INR. |
+| frequency | 0.276787 | Earlier completed-order frequency distinguishes regular shoppers. |
+| recency | 0.111219 | Days since the last completed order indicate disengagement. |
+| avg_delivery_minutes | 0.061649 | Earlier delivery duration captures service experience. |
+| avg_discount_pct | 0.053178 | Earlier discount usage helps identify promotion-sensitive shoppers. |
+
+Three fitted logistic coefficients (numeric coefficients refer to standardized inputs):
+
+| Feature | Coefficient | Sign | Business reading |
+| --- | --- | --- | --- |
+| recency | 0.039585 | positive | Days since the last completed order indicate disengagement. Its coefficient implies higher lapse log-odds as the feature increases, holding other inputs fixed. |
+| frequency | -1.698239 | negative | Earlier completed-order frequency distinguishes regular shoppers. Its coefficient implies lower lapse log-odds as the feature increases, holding other inputs fixed. |
+| avg_discount_pct | 0.004438 | positive | Earlier discount usage helps identify promotion-sensitive shoppers. Its coefficient implies higher lapse log-odds as the feature increases, holding other inputs fixed. |
+
+The selected random forest Pipeline is persisted to `outputs/lapse_model.joblib`; joblib reload reproduces original test predictions exactly: **True**. There are 40 Premium test customers; the top ten by probability are exported with the required columns:
+
+| Customer | Lapse probability | Actually lapsed |
+| --- | --- | --- |
+| C0862 | 0.530369 | 0 |
+| C0060 | 0.476473 | 0 |
+| C1008 | 0.475621 | 0 |
+| C0267 | 0.475263 | 0 |
+| C0133 | 0.471179 | 0 |
+| C0942 | 0.468798 | 0 |
+| C1000 | 0.465437 | 0 |
+| C0553 | 0.464462 | 0 |
+| C1112 | 0.462014 | 0 |
+| C0565 | 0.460255 | 1 |
+
+Actually lapsed among the top ten: **1/10**. The Premium flag is a post-hoc whole-window RFM label that includes September; therefore the retention list is illustrative and is not a leakage-free evaluation.
+
+## Part C
+
+### Guardrails and privacy
+
+Process tickets in raw CSV order. Empty or whitespace-only text is skipped; text with est_tokens > 400 is flagged long. Neither triggers a model call. `est_tokens` is the unmodified mock's ceil(words * 1.3) estimator.
+
+| Input check | Measured result |
+| --- | --- |
+| Total tickets | 164 |
+| Eligible | 156 |
+| skipped_empty | 4 |
+| flagged_long | 4 |
+| Tokens per long ticket | 734 |
+
+Apply exactly these masks, in this order, before building a prompt:
+
 ```text
-ALL CHECKPOINTS PASSED
+email:    [\w.+-]+@[\w-]+\.[\w.]+  -> [EMAIL]
+phone:    \b[6-9]\d{9}\b            -> [PHONE]
+order id: ORD-\d{6}                  -> [ORDER_ID]
 ```
 
----
-
-### 4. SQL Analysis (`sql/queries.sql`)
-
-All queries were executed via `pd.read_sql_query` against `data/instamart.db`:
-
-- **Q1 — WHERE then HAVING**: Filtered completed orders with `order_amount > 500`, grouped by customer, and filtered `SUM(order_amount) > 8000`.
-  - *Result*: **30 customers** returned.
-- **Q2 — Three-Table Join**: Revenue aggregated by city and product category across orders, customers, and products.
-  - *Result*: **30 rows** returned; grand total revenue = **INR 2,998,668.80**; top cell: **Bengaluru / Electronics** at **INR 233,909.45**.
-- **Q3 — Scalar Subquery**: Identified products priced above the overall average catalog price (`AVG(price_inr)` = 359.85).
-  - *Result*: **11 products** returned.
-- **Q4 — LEFT JOIN**: Identified registered customers who have zero completed orders.
-  - *Result*: **25 customers** returned.
-- **Q5 — Common Table Expression (CTE)**: Computed customer spend CTE and average spend CTE, returning customers with spend above the average.
-  - *Result*: **550 customers** returned; overall average spend = **INR 2,552.06**.
-- **Q6 — Ranking Window Functions**: Partitioned by city, ordered by `total_spend DESC`, applying `RANK()`, `DENSE_RANK()`, and `ROW_NUMBER()`.
-  - *Top customer per city*:
-    - Bengaluru: **C0082** (INR 12,856.20)
-    - Chennai: **C0930** (INR 10,151.40)
-    - Delhi: **C0291** (INR 13,742.60)
-    - Hyderabad: **C0743** (INR 12,730.05)
-    - Mumbai: **C0693** (INR 14,766.55)
-    - Pune: **C0426** (INR 10,377.10)
-  - *Rank Discrepancy*: Exactly **8 rows** have `RANK()` different from `ROW_NUMBER()`.
-  - *Tie Explanation*: Ties cause `RANK()` to assign identical rank positions to tied spend values and skip subsequent ranks, whereas `ROW_NUMBER()` strictly assigns consecutive unique integers regardless of ties.
-- **Q7 — Running Total**: Daily completed revenue running total ordered chronologically.
-  - *Result*: **183 daily rows**; final cumulative revenue = **INR 2,998,668.80**.
+| PII type | Substitutions across all tickets | Remaining |
+| --- | --- | --- |
+| email | 55 | 0 |
+| phone | 91 | 0 |
+| order_id | 132 | 0 |
+| Total | 278 | 0 |
 
----
+Reapplying all three regexes finds zero matches. An assertion checks every prompt, including retry attempts. The user message is exactly the redacted ticket text, without appended labels or identifiers. The notebook additionally spies on all 175 attempted calls in a complete batch to prove privacy and file order.
 
-### 5. Pandas Cross-Check & Exploratory Data Analysis
+### Prompts, retries and output validation
 
-#### Per-City Completed Revenue Breakdown
-
-| City | Total Completed Spend (INR) | Mean Spend (INR) | Completed Order Count |
-| :--- | :--- | :--- | :--- |
-| **Bengaluru** | 523,643.40 | 276.47 | 1,894 |
-| **Chennai** | 463,629.15 | 272.72 | 1,700 |
-| **Delhi** | 502,829.80 | 243.62 | 2,064 |
-| **Hyderabad** | 528,589.90 | 284.95 | 1,855 |
-| **Mumbai** | 479,058.50 | 297.00 | 1,613 |
-| **Pune** | 500,918.05 | 252.48 | 1,984 |
-| **Total** | **2,998,668.80** | **269.91** | **11,110** |
-
-#### Statistical Distribution of Completed `order_amount`
-
-- **Mean**: INR 269.91
-- **Median**: INR 135.00
-- **Skewness**: 4.61 (heavily right-skewed)
-- **Quartiles**: Q1 = INR 64.80, Q3 = INR 297.00, IQR = INR 232.20
-- **1.5×IQR Fences**: Lower fence = INR -283.50, Upper fence = INR 645.30
-- **Outliers**: Lower outliers = 0; Upper outliers = 897 orders
-
-#### Correlation Matrix (Completed Orders)
+Zero-shot system prompt:
 
-| Variable | order_amount | discount_pct | quantity | delivery_minutes |
-| :--- | :--- | :--- | :--- | :--- |
-| **order_amount** | 1.0000 | -0.0951 | 0.0873 | -0.0031 |
-| **discount_pct** | -0.0951 | 1.0000 | -0.0004 | -0.0098 |
-| **quantity** | 0.0873 | -0.0004 | 1.0000 | -0.0126 |
-| **delivery_minutes** | -0.0031 | -0.0098 | -0.0126 | 1.0000 |
+```text
+CLASSIFY the support ticket into exactly one of: billing, delivery, technical, fraud.
+You must respond strictly in valid JSON format:
+{"category": "...", "reason": "..."}
+```
 
-#### Exploratory Findings (Under 200 Words)
+Few-shot system prompt:
 
-This dataset captures synthetic transactional operations for quick-commerce grocery delivery across six Indian metros. Distributions are heavily right-skewed: the median order amount (INR 135.00) is half the mean (INR 269.91) with a skewness of 4.61, reflecting frequent low-cost daily staple purchases (dairy, produce) interspersed with high-ticket electronics. The 1.5×IQR upper fence is INR 645.30, identifying 897 upper-tail outliers driven by bulk basket quantities and premium consumer electronics. Deliveries average 24 minutes with low variance. Pairwise linear associations are minimal; the strongest correlation in absolute magnitude is between `order_amount` and `discount_pct` at −0.0951 (followed by `order_amount` and `quantity` at +0.0873). However, correlation of this small magnitude does not establish causation; higher basket values occasionally reflect smaller relative promotional discounts rather than discounts suppressing spending.
+```text
+CLASSIFY the support ticket into exactly one of: billing, delivery, technical, fraud.
+You must respond strictly in valid JSON format:
+{"category": "...", "reason": "..."}
+EXAMPLES:
+Ticket: I was charged twice for order [ORDER_ID]. Please refund the extra payment.
+Response: {"category": "billing", "reason": "charged twice for order"}
+Ticket: Someone hacked my account and made unauthorized transactions.
+Response: {"category": "fraud", "reason": "unauthorized account takeover"}
+```
 
----
+Each independent run immediately resets mock counters. Every call has at most three retries; wait for retry n=0,1,2 is `0.05 * 2**n * uniform(0.9,1.15)`, using a per-run random generator seeded 42. Complete runs encounter 19 transient failures, all recovered, with zero permanent errors. Every mock retry has n=0, so waits fall in 0.045-0.0575 seconds. One actual zero-shot retry log line appears below; all 19 are retained in `outputs/part_c_report.json` and notebook outputs.
 
-## Part B: Customer Segments and Lapse Prediction
+```text
+[RETRY] Ticket: T0002 | Retry: 0 | Wait: 0.052993s
+```
+
+Accept JSON only when its category is one of billing/delivery/technical/fraud (`classified_json`). Only a non-JSON answer may recover by `re.findall(r'[a-z]+', text.lower())`, and exactly one category word must appear (`classified_keyword`). Valid JSON with an invalid category, ambiguous text and every other invalid output become `flagged_invalid_output` and go to human review. No category is guessed from an invalid JSON reason.
 
-### 1. RFM Table Construction
+| Full-run status | Count |
+| --- | --- |
+| classified_json | 135 |
+| classified_keyword | 12 |
+| flagged_invalid_output | 9 |
+| skipped_empty | 4 |
+| flagged_long | 4 |
 
-Computed as of snapshot `2025-10-01 00:00:00` over completed orders:
-- Total active customers: **1,175**
-- **Recency** (days since last completed order): median = 19, min = 0, max = 180
-- **Frequency** (count of distinct completed orders): mean = 9.46, min = 1, max = 33
-- **Monetary** (sum of completed spend): mean = INR 2,552.06, min = INR 20.00, max = INR 14,766.55
+### Prompt comparison and token cost
+
+Accuracy uses only classified tickets; tokens sum usage.total_tokens over all successful calls, including replies that fail validation. There is no token budget for these two comparison runs.
 
----
+| Prompt | Classified | Correct | Accuracy | Total tokens | Tokens / classified |
+| --- | --- | --- | --- | --- | --- |
+| Zero-shot | 147 | 126 | 85.71% | 9400 | 63.946 |
+| Few-shot | 147 | 147 | 100.00% | 17044 | 115.946 |
 
-### 2. K-Means Clustering & Segment Profiling
+Zero-shot confusion table: rows are true category, columns predicted category; excluded invalid/guarded tickets are not in the denominator.
 
-RFM columns were standardised using `StandardScaler`. Clustering was evaluated across $K \in [2, 8]$ using `KMeans(n_clusters=K, n_init=10, random_state=42)`:
+| True / predicted | billing | delivery | technical | fraud |
+| --- | --- | --- | --- | --- |
+| billing | 38 | 0 | 0 | 0 |
+| delivery | 0 | 36 | 0 | 0 |
+| technical | 10 | 0 | 29 | 0 |
+| fraud | 11 | 0 | 0 | 23 |
+
+The few-shot prompt increases tokens from 9,400 to 17,044, adding 7,644 tokens and about 52 per classified ticket. It corrects all 21 zero-shot errors: 11 fraud tickets and 10 technical tickets previously classified as billing. The extra tokens are worthwhile when a fraud misroute or delayed technical response costs more than the added processing budget. This synthetic mock comparison is perfect at 147/147, but live language-model quality would need separate evaluation.
 
-| K | Inertia | Silhouette Score |
-| :--- | :--- | :--- |
-| **2** | 1820.8 | 0.465 |
-| **3** | 1268.2 | 0.445 |
-| **4** | **743.1** | **0.526** (Optimal Peak) |
-| **5** | 617.4 | 0.480 |
-| **6** | 503.2 | 0.482 |
-| **7** | 408.5 | 0.416 |
-| **8** | 366.5 | 0.412 |
+### Budget and segment-aware routing
 
-*Inertia vs K Explanation*: The inertia of $K=8$ is mathematically lower than $K=2$ because adding more centroids monotonically decreases the within-cluster sum of squared distances to the nearest center. At the extreme where $K=N$, inertia becomes zero; therefore, inertia alone cannot select $K$, requiring silhouette analysis and the elbow criterion to identify genuine cluster compactness and separation.
+Before every model attempt, including a retry, stop if tokens already used are at least the budget. This assignment-prescribed gate is soft: the last admitted response may exceed the threshold. The zero-shot budget demo uses 6,000, exhausts 56 tickets, and ends at 6,038 tokens (38 over the gate). The final few-shot run uses exactly 100,000 and consumes 17,044 with no budget-exhausted rows.
 
-#### K=4 Segment Profiles
+Skipped, long, invalid or budget-exhausted tickets go to human_review/NORMAL. Other fraud tickets go to security_team/HIGH. Other Premium-customer tickets go to premium_desk/HIGH. All other classified tickets go to support_queue/NORMAL. Missing segment rows mean not Premium; category and segment_name remain blank when unavailable. Final CSV columns are ticket_id, customer_id, status, category, segment_name, priority, route, tokens_used.
 
-$K=4$ was selected as it maximizes the silhouette score (0.526) and offers clean business interpretability:
+| Final route | Tickets |
+| --- | --- |
+| support_queue | 102 |
+| security_team | 34 |
+| human_review | 17 |
+| premium_desk | 11 |
 
-| Segment ID | Segment Name | Size | Mean Recency (days) | Mean Frequency | Mean Spend (INR) | Recommended Action | Is Premium |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1** | **High-Value Premium** | 138 | 24.12 | 6.77 | 7,129.70 | VIP concierge, early access to new electronics, dedicated SLA | **True** |
-| **2** | **Active Frequent Shoppers**| 419 | 8.77 | 19.40 | 3,410.02 | Category cross-selling, loyalty subscription perks | False |
-| **0** | **Occasional / Regular** | 436 | 28.86 | 3.77 | 1,057.62 | Frequency nudges, personalized weekend discount coupons | False |
-| **3** | **Dormant / At-Risk** | 182 | 109.04 | 2.20 | 685.99 | Win-back campaigns, deep reactivation discounts | False |
+| Final priority | Tickets |
+| --- | --- |
+| NORMAL | 119 |
+| HIGH | 45 |
 
-*Note*: Cluster numbers are arbitrary labels with no intrinsic ordering.
+All 147 accepted outputs were rule-validated (135 JSON and 12 keyword); 17 guarded/invalid tickets went to humans. `outputs/triage_results.csv` and `outputs/triage_budget_demo.csv` each contain all 164 input tickets.
 
-#### PCA Projection
+## Part D
 
-Applying `PCA(n_components=2)` on scaled RFM features yields:
-- Component 1 Explained Variance Ratio: **0.6343** (63.4%)
-- Component 2 Explained Variance Ratio: **0.2180** (21.8%)
-- Total Explained Variance: **0.8523** (85.2%)
+### Policy chunking, retrieval and grounded answers
 
-The segment assignments were exported to `outputs/customer_segments.csv`.
+Split each policy into 40-word chunks with 10-word overlap, never crossing document boundaries. Retain each chunk's source. Fit the prescribed default `TfidfVectorizer()` on the 15 chunks and retrieve the three highest cosine similarities, returning source, score and text. All three top chunks for `refund policy late delivery` come from refund_policy.txt.
 
----
+TF measures how frequently a term appears within a chunk. IDF downweights terms common across many chunks and emphasizes rare terms, but lexical TF-IDF vectors can miss equivalent policy questions phrased with different words.
 
-### 3. Customer Lapse Prediction
+| Policy document | Chunks |
+| --- | --- |
+| delivery_policy.txt | 3 |
+| escalation_policy.txt | 3 |
+| payment_policy.txt | 3 |
+| privacy_policy.txt | 2 |
+| refund_policy.txt | 4 |
 
-#### Cohort & Leakage-Free Feature Engineering
+| Reference retrieval rank | Source | Cosine score |
+| --- | --- | --- |
+| 1 | refund_policy.txt | 0.271928 |
+| 2 | refund_policy.txt | 0.251374 |
+| 3 | refund_policy.txt | 0.245406 |
 
-- **Cutoff Date**: `2025-09-01 00:00:00`.
-- **Cohort**: Customers with $\ge 1$ completed order prior to the cutoff date (**1,156 customers**).
-- **Target (`lapsed`)**: `1` if the customer had zero completed orders between `2025-09-01` and `2025-09-30`, else `0`.
-  - Lapsed count: **443** (38.32% positive class).
-  - Active count: **713** (61.68% negative class).
-- **Features** (strictly calculated using pre-cutoff data and customer profiles only):
-  - `recency`, `frequency`, `monetary`, `avg_discount_pct`, `cancellation_rate`, `avg_delivery_minutes`, `tenure_days`, `age`, `favourite_category`, `city`, `gender`.
-  - Feature leakage safeguards: Zero post-cutoff orders were accessed, and Part B Task 3 segment labels were excluded from model features.
-- **Train/Test Split**: 80/20 stratified split (`random_state=42`):
-  - Train: **924 customers** (354 lapsed, 570 active).
-  - Test: **232 customers** (89 lapsed, 143 active).
+The system prompt contains POLICY ASSISTANT, requires answers from supplied context, and requires the fallback for missing information. The user message format is exactly:
 
-#### Preprocessing & Learned Statistics
+```text
+CONTEXT:
+[source_file.txt]
+first retrieved chunk text
+[source_file.txt]
+second retrieved chunk text
+[source_file.txt]
+third retrieved chunk text
+QUESTION:
+the question
+```
 
-Preprocessing used a `ColumnTransformer` with `StandardScaler` on numeric variables and `OneHotEncoder(drop='first', sparse_output=False)` on nominal columns, fitted strictly on the training partition.
-- **Learned Training Frequency Mean**: **8.1147**
-- **Full Cohort Frequency Mean**: **8.0285**
-- *Difference Explanation*: The training frequency mean differs from the full cohort mean because the training partition is a random 80% sample; sample variance naturally produces slight divergence from the population parameter, demonstrating that no test data leaked into the scaler.
-- Zero missing values were confirmed across all feature vectors.
+`answer(question)` returns model text and the sources used. Evaluate all 14 supplied questions; document hits mean expected_doc occurs among the top three, facts mean a case-sensitive expected_fact substring, and uncovered answers must start `I could not find`.
 
-#### Model Tuning & Evaluation
+| Chunk overlap | Total chunks | Expected doc / 12 | Expected fact / 12 | Uncovered fallback / 2 |
+| --- | --- | --- | --- | --- |
+| 10 | 15 | 12 | 12 | 2 |
+| 0 | 13 | 12 | 10 | 2 |
 
-Models were tuned using 5-fold cross-validation (`scoring='f1'`):
+Questions failing grounding with overlap zero:
 
-| Model | Hyperparameter Grid | Best Hyperparameters | Best CV F1 | Test Precision | Test Recall | Test F1 |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Majority Baseline** | Predict All Active | None | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
-| **Logistic Regression** | $C \in \{0.01, 0.1, 1, 10, 100\}$ | $C = 100$ | 0.6506 | 0.6444 | 0.6517 | 0.6480 |
-| **Random Forest** | depth $\in \{3,5,8\}$, leaf $\in \{5,10,20\}$ | depth=8, leaf=10 | **0.6856** | 0.6404 | 0.6404 | 0.6404 |
+| Question | Expected fact | Why it fails |
+| --- | --- | --- |
+| What delivery time makes a completed order eligible for a full refund? | more than 45 minutes | The condition more than 45 minutes is in words 0-39, while the full-refund result starts at word 40. The mock selects the incomplete result sentence; the 30-69 chunk keeps the condition and result together. |
+| How soon is money returned when a payment fails but is deducted? | 48 hours | The failed-payment condition ends in words 0-39 and within 48 hours begins at word 40. The zero-overlap retrieved context omits the timing chunk; overlapping words 30-69 retain both. |
 
-*Confusion Matrices on Test Set (Lapsed Class = Positive)*:
-- **Logistic Regression**: TP=58, FP=32, FN=31, TN=111
-- **Random Forest**: TP=57, FP=32, FN=32, TN=111
+### Tool definitions and refund rules
 
-#### Model Choice Justification
+`part_d/tools.py` holds TOOLS_SPEC with one-sentence descriptions and JSON parameter schemas plus TOOL_MAP mapping names to functions. Model requests resolve by their name and arguments dictionary.
 
-Random Forest was selected as the operational model. In quick-commerce retention, failing to identify a lapsing customer (False Negative) results in permanent customer churn and lost lifetime value, whereas mistakenly sending a promotional retention offer to an active customer (False Positive) incurs only a minimal marketing coupon cost. Random Forest achieved superior cross-validated F1 (0.6856 vs 0.6506) and models non-linear interactions between delivery delays and order frequency without linear boundary constraints.
+| Tool | Parameters | Behavior |
+| --- | --- | --- |
+| get_order | order_id | Read an order's status, amount and delivery minutes from SQLite. |
+| search_policy | query | Search three policy chunks using TF-IDF cosine similarity. |
+| calculate_refund | order_amount, delivery_minutes | Calculate a full refund for delivery over 45 minutes or zero otherwise. |
+| issue_refund | order_id, refund_inr | Record an eligible completed-order refund no greater than INR 1000. |
+| escalate_to_human | order_id, refund_inr | Record an eligible refund above INR 1000 for human approval. |
 
----
+`get_order` uses a parameterized read-only SQLite query and returns order_id, status, order_amount, delivery_minutes or {"error":"order not found"}. `search_policy` wraps the same retrieve output under results. `calculate_refund` returns refund_inr: full amount only when duration exceeds 45 minutes, otherwise zero. Dispatch enforces each tool's declared required fields, types and numeric bounds and rejects undeclared fields, including database or ledger path overrides. Action tools independently check order existence, completed status, eligible amount and the INR 1,000 threshold before appending a timestamped local ledger action. Values at 45 minutes yield zero; 45.01 minutes qualifies. An escalation records a human approval request and does not issue money. These are simulated ledger entries, not real payment transfers. As required, every supplied request is assumed within seven days.
 
-### 4. Class-Balance Experiment
+### ReAct scenarios and measured calls
 
-The minority lapsed class in the training partition was oversampled with replacement (`random_state=42`) from 354 to 570 rows, equalizing both classes (1,140 total train rows). The best Logistic Regression ($C=100$) was refitted on this balanced set and evaluated on the untouched test partition:
+`run_agent(user_message, scenario_id, max_iterations=6, token_limit=6000, time_limit_seconds=10)` starts with AGENT and the user message. It appends each assistant tool request, dispatches through TOOL_MAP, appends the JSON tool observation and continues. The final prefix supplies the normal status. Runs return status, final_answer, steps, llm_calls and tokens_used, and retain every tool name, arguments and observation in JSONL.
 
-| Model Configuration | Precision | Recall | F1 Score | Test Confusion Matrix [TN, FP / FN, TP] |
-| :--- | :--- | :--- | :--- | :--- |
-| **Unbalanced Logistic Regression** | 0.6444 | 0.6517 | 0.6480 | [111, 32 / 31, 58] |
-| **Class-Balanced Logistic Regression** | 0.6000 | **0.8090** | **0.6890** | [95, 48 / 17, 72] |
+| Scenario | Status | Refund/request amount (INR) | Model calls | Estimated tokens |
+| --- | --- | --- | --- | --- |
+| S1 | REFUND | 128.25 | 5 | 1077 |
+| S2 | REFUND | 135.00 | 5 | 1077 |
+| S3 | ESCALATE | 1,999.00 | 5 | 1064 |
+| S4 | DENIED | 0.00 | 4 | 749 |
+| S5 | DENIED | 0.00 | 3 | 445 |
+| S6 | NOT_FOUND | 0.00 | 2 | 144 |
+| S7 | FALLBACK_MAX_ITERATIONS | 0.00 | 6 | 3216 |
 
-*Retention Team Impact*: Recall moved the most, surging from 0.6517 to 0.8090 (+15.7 percentage points), while precision remained at 0.6000. For the retention team, this trade-off is advantageous: it successfully captures 81% of all lapsing customers (recovering 14 additional churning users), ensuring that win-back campaigns catch at-risk customers before churn becomes irreversible.
+`outputs/agent_runs.jsonl` contains exactly seven current batch lines. Demo runs live in `outputs/agent_demos.jsonl`. S1 issues INR 128.25, S2 issues INR 135.00, and S3 requests human approval for INR 1,999.00. S4 is an on-time denial; S5 is a cancelled-order denial; S6 is not found. S7 completes six calls under the default token limit and hands off by max iterations.
 
----
+### Independent safety stops
 
-### 5. Interpretability & Retention List
+At the top of each iteration, compare elapsed time from time.monotonic against the timeout; elapsed >= the limit stops before another call. Sum usage.total_tokens after every model response; if the total exceeds token_limit, stop before executing the just-requested tool. After the maximum model calls without a final answer, hand off. Every fallback returns completed steps and a short human-handoff summary.
 
-#### Top 5 Features (Random Forest)
+| Demonstration | Status | Model calls | Tokens | Tools completed |
+| --- | --- | --- | --- | --- |
+| S1 token_limit=200 | FALLBACK_TOKEN_LIMIT | 3 | 462 | get_order, search_policy |
+| time_limit_seconds=0 | FALLBACK_TIMEOUT | 0 | 0 | None |
+| S7 max_iterations=6 | FALLBACK_MAX_ITERATIONS | 6 | 3216 | Six policy searches |
 
-1. `monetary` (Importance: 0.2779): Total historical spend is the strongest predictor of customer commitment and habituation.
-2. `frequency` (Importance: 0.2768): Order cadence establishes purchasing routine; sudden frequency drops signal immediate churn.
-3. `recency` (Importance: 0.1113): Extended elapsed time since last purchase strongly correlates with disengagement.
-4. `avg_delivery_minutes` (Importance: 0.0617): Delivery friction and prolonged transit times trigger dissatisfaction and customer churn.
-5. `avg_discount_pct` (Importance: 0.0532): Deal-seeking behavior indicates lower brand loyalty when incentives diminish.
+### Crash, checkpoint and resume
 
-#### Logistic Regression Coefficients
+After every tool observation, atomically save run id, scenario id, full messages, cumulative tokens/calls, step count, executed tools, pending calls, elapsed active time and limits in `state/<run_id>.json`. The S1 demo raises a simulated crash immediately after saving its second observation, then calls `resume_agent(run_id)`.
 
-- `recency` (+0.7628): Positive coefficient — higher elapsed days since last order increases lapse probability.
-- `frequency` (-0.6841): Negative coefficient — higher historical order volume reduces lapse probability.
-- `monetary` (-0.3812): Negative coefficient — greater total spend reinforces stickiness.
+| Phase | Executed tools |
+| --- | --- |
+| Before crash | get_order, search_policy |
+| After resume | calculate_refund, issue_refund |
+| Full ordered sequence | get_order, search_policy, calculate_refund, issue_refund |
 
-The model was serialized to `outputs/lapse_model.joblib`. Reloading verified exact prediction parity.
+Exactly 4 tool executions occur across both phases, with no repeats; final status is REFUND for INR 128.25. Model calls are 5 cumulatively, including 3 after resume. A terminal resume returns the same result and adds no action. The ledger uses a stable run/step operation id to suppress a replayed local action.
 
-#### Retention Priority List (Top 10 At-Risk Premium Customers)
+### ReAct versus plan-and-execute (under 250 words)
 
-Saved to `outputs/retention_list.csv`:
-
-| Customer ID | Predicted Lapse Probability | Actually Lapsed (Sept 2025) |
-| :--- | :--- | :--- |
-| **C0862** | 0.5304 | 0 |
-| **C1008** | 0.4775 | 0 |
-| **C0060** | 0.4765 | 0 |
-| **C0267** | 0.4753 | 0 |
-| **C0133** | 0.4726 | 0 |
-| **C0942** | 0.4677 | 0 |
-| **C0553** | 0.4645 | 0 |
-| **C1112** | 0.4620 | 0 |
-| **C0565** | 0.4616 | 1 |
-| **C1000** | 0.4602 | 0 |
-
-*Actually Lapsed Count*: 1 out of 10.
-*Methodological Notice*: The retention list is illustrative and not a leakage-free evaluation because the Premium flag comes from the whole-window RFM segmentation which includes the September window.
-
----
-
-## Part C: Support Ticket Triage with Guardrails
-
-### 1. Input Guardrails & PII Redaction Audit
-
-Processing 164 support tickets from `data/raw/tickets.csv`:
-- **Empty Guardrail (`skipped_empty`)**: **4 tickets** contained whitespace-only or empty strings; routed immediately to human review with zero model calls.
-- **Length Guardrail (`flagged_long`)**: **4 tickets** exceeded `MAX_INPUT_TOKENS = 400` (each estimated at **734 tokens**); safely intercepted before model dispatch.
-- **PII Redaction**: Applied regex substitution in exact sequence:
-  1. Emails (`[\w.+-]+@[\w-]+\.[\w.]+` $\rightarrow$ `[EMAIL]`): **55 substitutions**
-  2. Phone Numbers (`\b[6-9]\d{9}\b` $\rightarrow$ `[PHONE]`): **91 substitutions**
-  3. Order IDs (`ORD-\d{6}` $\rightarrow$ `[ORDER_ID]`): **132 substitutions**
-  - **Total PII Masked**: **278 substitutions**. Zero unmasked entities remained across all prompt payloads (verified via assertion).
-
----
-
-### 2. Resilient Retries & Output Validation
-
-The triage pipeline wraps `mock_llm.chat` with exponential backoff and uniform jitter:
-$$\text{wait} = \text{BASE\_DELAY} \times 2^n \times \text{Uniform}(0.9, 1.15) \quad (\text{BASE\_DELAY} = 0.05\text{s})$$
-- Across the 156 eligible tickets, exactly **19 `TransientLLMError` failures** were triggered. Every failure was successfully recovered on retry 0 with waits between 0.045s and 0.0575s; zero tickets experienced unhandled exceptions.
-- **Validation Engine**:
-  - `classified_json`: **135 tickets** returned valid JSON with an allowed category.
-  - `classified_keyword`: **12 tickets** returned conversational text (e.g. `The customer appears to have a <cat>-related problem.`), successfully parsed via `re.findall(r"[a-z]+", text.lower())`.
-  - `flagged_invalid_output`: **9 tickets** returned invalid categories (e.g. `"shipping"`), safely diverted to human review.
-
----
-
-### 3. Zero-Shot vs Few-Shot Comparison
-
-| Metric | Zero-Shot Prompt | Few-Shot Prompt |
-| :--- | :--- | :--- |
-| **Total Tickets Evaluated** | 164 | 164 |
-| **Classified Tickets** | 147 (135 JSON + 12 Keyword) | 147 (135 JSON + 12 Keyword) |
-| **Classification Accuracy** | **85.71%** (126 / 147) | **100.00%** (147 / 147) |
-| **Total Tokens Consumed** | 9,400 tokens | 17,044 tokens |
-| **Tokens per Classified Ticket** | 63.95 tokens | 115.95 tokens |
-
-#### Zero-Shot Confusion Matrix (Classified Tickets)
-
-| True Category \ Predicted | billing | delivery | fraud | technical | Total |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **billing** | 38 | 0 | 0 | 0 | 38 |
-| **delivery** | 0 | 36 | 0 | 0 | 36 |
-| **fraud** | **11** | 0 | 23 | 0 | 34 |
-| **technical** | **10** | 0 | 0 | 29 | 39 |
-| **Total** | 59 | 36 | 23 | 29 | 147 |
-
-#### Few-Shot Value Justification
-
-The few-shot prompt consumed an additional 52.0 tokens per ticket (+81.3% token overhead), but eliminated all 21 classification errors, raising classification accuracy from 85.71% to 100.00%. In quick-commerce support, misclassifying 11 urgent fraud reports as standard billing issues creates security and legal exposure, while misrouting 10 app crashes as billing queries delays engineering bug fixes. Paying 52 extra tokens (~INR 0.005 equivalent) per ticket prevents costly misrouting, making few-shot prompts essential for enterprise triage.
-
----
-
-### 4. Token Budget & Routing Outputs
-
-#### Token Budget Demonstration (`outputs/triage_budget_demo.csv`)
-
-Running zero-shot with `TOKEN_BUDGET = 6000`:
-- Tickets classified before exhaustion: **95** (88 JSON, 7 Keyword)
-- Tickets flagged invalid output: **5**
-- Skipped / Long: **8**
-- **Tickets ending `budget_exhausted`**: **56 tickets** safely intercepted and redirected to human review without service degradation.
-
-#### Production Ticket Routing (`outputs/triage_results.csv`)
-
-Generated using the few-shot pipeline with `TOKEN_BUDGET = 100000`:
-- **`support_queue`** (Priority NORMAL): **102 tickets** — Standard delivery, billing, and technical requests.
-- **`security_team`** (Priority HIGH): **34 tickets** — Critical account fraud and unauthorized transactions.
-- **`human_review`** (Priority NORMAL): **17 tickets** — Guardrail triggers (4 empty, 4 long, 9 invalid output).
-- **`premium_desk`** (Priority HIGH): **11 tickets** — High-priority routing for verified Premium customers.
-
----
-
-## Part D: Policy RAG Assistant and Refund Agent
-
-### 1. Document Chunking & TF-IDF Retrieval
-
-- 5 policy documents (`refund_policy.txt`, `delivery_policy.txt`, `payment_policy.txt`, `privacy_policy.txt`, `escalation_policy.txt`) split into 40-word chunks with 10-word overlap (30-word step):
-  - `delivery_policy.txt`: 3 chunks
-  - `escalation_policy.txt`: 3 chunks
-  - `payment_policy.txt`: 3 chunks
-  - `privacy_policy.txt`: 2 chunks
-  - `refund_policy.txt`: 4 chunks
-  - **Total Chunks**: **15 chunks**.
-- **Query Test**: `refund policy late delivery` retrieves top 3 chunks entirely from `refund_policy.txt` (Scores: 0.2719, 0.2514, 0.2454).
-- *TF & IDF Definitions & Limitation*: Term Frequency (TF) measures the normalized occurrence count of a word within a document chunk, while Inverse Document Frequency (IDF) penalizes common words across the corpus, weighting rare domain terms. A fundamental limitation of TF-IDF is its lexical reliance: it cannot capture semantic synonyms or paraphrases (e.g. failing to match "unauthorized debit" with "fraudulent charge" unless identical word stems appear).
-
----
-
-### 2. Retrieval Evaluation: 10-Word Overlap vs. Zero-Overlap
-
-Evaluated against `data/raw/policy_eval.csv` (14 questions: 12 answerable, 2 out-of-scope):
-
-| Evaluation Metric | 10-Word Overlap (Step 30) | Zero Overlap (Step 40) |
-| :--- | :--- | :--- |
-| **Answerable Document Retrieval** | **12 / 12** (100.0%) | **12 / 12** (100.0%) |
-| **Answerable Grounded Fact Accuracy** | **12 / 12** (100.0%) | **10 / 12** (83.3%) |
-| **Unanswerable Fallback Accuracy** | **2 / 2** (100.0%) | **2 / 2** (100.0%) |
-
-#### Analysis of Zero-Overlap Failures
-
-Under zero-overlap chunking, 2 questions failed fact verification due to sentence boundary truncation:
-1. *"What delivery time makes a completed order eligible for a full refund?"*: The qualifying condition *"more than 45 minutes"* was sheared across chunk boundaries, causing the model to return only *"receives a full refund of the order amount."*
-2. *"How soon is money returned when a payment fails but is deducted?"*: The phrase *"48 hours"* was split from its condition, yielding an incomplete retrieval.
-*Conclusion*: Overlapping chunk windows preserve context continuity across arbitrary token splits.
-
----
-
-### 3. ReAct Refund Agent Scenarios (`outputs/agent_runs.jsonl`)
-
-The agent implements five tools (`get_order`, `search_policy`, `calculate_refund`, `issue_refund`, `escalate_to_human`). Running all 7 scenarios with default limits (`token_limit=6000`, `max_iterations=6`):
-
-| Scenario ID | Status | Expected Outcome | Refund Evaluated | Expected Refund | Model Calls | Tokens Used |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **S1** | **REFUND** | REFUND | INR 128.25 | INR 128.25 | 5 | 972 |
-| **S2** | **REFUND** | REFUND | INR 135.00 | INR 135.00 | 5 | 972 |
-| **S3** | **ESCALATE** | ESCALATE | INR 1999.00 | INR 1999.00 | 5 | 959 |
-| **S4** | **DENIED** | DENIED | INR 0.00 | INR 0.00 | 4 | 665 |
-| **S5** | **DENIED** | DENIED | INR 0.00 | INR 0.00 | 3 | 382 |
-| **S6** | **NOT_FOUND** | NOT_FOUND | INR 0.00 | INR 0.00 | 2 | 102 |
-| **S7** | **FALLBACK_MAX_ITERATIONS** | FALLBACK | INR 0.00 | INR 0.00 | 6 | 3,090 |
-
-- S1 and S2 were completed orders delivered in > 45 minutes with amounts $\le$ INR 1000, automatically issued and recorded in `outputs/refund_ledger.jsonl`.
-- S3 was an eligible late delivery exceeding INR 1000 (INR 1999.00), correctly routed to `escalate_to_human`.
-- S4 and S5 were denied (on-time delivery $\le 45$ min and cancelled order status, respectively).
-- S6 halted early after database lookup confirmed the order did not exist.
-- S7 entered a search loop and terminated cleanly at iteration 6.
-
----
-
-### 4. Stop-Safely Demonstrations
-
-1. **Token Budget Guardrail**: Running Scenario S1 with `token_limit=200`:
-   - *Status*: **`FALLBACK_TOKEN_LIMIT`**
-   - Intercepts execution immediately after the model call before executing requested tools.
-2. **Execution Timeout Guardrail**: Running Scenario S1 with `time_limit_seconds=0`:
-   - *Status*: **`FALLBACK_TIMEOUT`**
-   - Intercepts execution at the top of the first iteration prior to any model call.
-
----
-
-### 5. Resumable State & Crash-Recovery Demonstration
-
-Demonstrated on Scenario S1:
-1. Simulated system crash injected immediately after Tool Execution Step 2 (`search_policy`), following disk state persistence in `state/s1_crash_resume_demo.json`.
-2. `resume_agent("s1_crash_resume_demo")` was invoked, restoring conversation context, accumulated token counts, and previous tool observations.
-3. Execution resumed without re-running previous tools.
-- **Ordered Sequence of Executed Tools Across Crash & Resume**:
-  1. `get_order` (Pre-crash)
-  2. `search_policy` (Pre-crash)
-  3. `calculate_refund` (Post-resume)
-  4. `issue_refund` (Post-resume)
-- **Final Resumed Status**: **`REFUND`** (INR 128.25 issued).
-
----
-
-### 6. Architectural Analysis: ReAct vs. Plan-and-Execute
-
-The ReAct (Reason + Act) architecture operates as a dynamic, step-by-step state machine. For straightforward scenarios like S6 (`NOT_FOUND`), ReAct terminates after only 2 model calls (102 tokens); for cancelled orders (S5), it exits after 3 calls (382 tokens). However, happy-path resolutions (S1, S2, S3) require 5 iterative calls (959–972 tokens), and unresolvable loops (S7) consume 6 calls (3,090 tokens).
-
-In contrast, a Plan-and-Execute pattern generates a multi-step plan in one initial prompt (e.g. `[get_order -> search_policy -> calculate_refund -> issue_refund]`), executing deterministic tools in sequence and querying the LLM only once or twice, reducing token overhead by 50–70%. However, Plan-and-Execute struggles with unexpected environmental observations: when an order is missing or cancelled, the pre-computed plan breaks, forcing a costly replanning step.
-
-For Instamart's automated refund workflow, **ReAct is the superior design choice**. Financial transactions require strict conditional gating: an automated refund must never be issued if an order was cancelled or delivered on time. ReAct's tight feedback loop evaluates real-time database state at each intermediate step, providing auditable safety checks that outweigh the minor token savings of pre-planned execution.
-
----
+The measured ReAct workflow uses 5 model calls and 1077 estimated tokens for S1, 3 calls/445 tokens for the cancelled order S5, and 2 calls/144 tokens for NOT_FOUND S6. Each new call resends accumulated history, so its token cost grows with the number and size of observations. A plan-and-execute design could request the full conditional step list once, then execute validated tools locally and replan only on an error; a normal request could use one planning call plus an optional final response call. Its exact token saving is unmeasured because the supplied mock implements ReAct, not a planner. ReAct adapts immediately to NOT_FOUND or a cancelled status and stops before money is issued. A static plan must branch on those observations or replan; blindly following the remaining steps is unsafe. For this fixed refund workflow I would choose a validated conditional plan executed by deterministic Python rules, with human escalation above INR 1000. It reduces repeated model calls while retaining action-time checks. ReAct is preferable when policy or observations need more open-ended reasoning.
 
 ## Limitations and Next Steps
 
-1. **Synthetic Data Realism**: All order histories, customer distributions, and support tickets were generated via synthetic distributions. Real-world quick commerce involves regional dialect mixing, phonetic typos (e.g. "refunnd"), multimodal proof (damaged item photos), and seasonal demand surges (festivals, monsoons). Future work should integrate localized Indian multilingual embeddings.
-2. **Post-Hoc Whole-Window Segment Labeling**: In Part B, the retention list was constructed using whole-window RFM segment designations (which include September 2025 activity). The retention list is illustrative and not a leakage-free evaluation because the Premium flag comes from the whole-window RFM segmentation which includes the September window. While the lapse model's own features strictly obeyed temporal boundaries (using only pre-cutoff orders), production deployments must compute rolling RFM metrics strictly prior to the cutoff date.
-3. **Lexical Retrieval Limitations**: The TF-IDF policy retriever lacks semantic understanding of synonyms. Upgrading to dense bi-encoder embeddings (e.g. `all-MiniLM-L6-v2`) with hybrid BM25 re-ranking would improve retrieval accuracy across colloquial customer inquiries.
-4. **Deterministic Mock vs. Production LLMs**: `mock_llm.py` simulates structural failure modes (503s, non-JSON output, invalid categories) deterministically. Transitioning to production hosted models requires continuous schema validation (e.g. Pydantic / instructor), rate-limiting circuit breakers, and human-in-the-loop escalation workflows.
+The synthetic data and deterministic mock are learning fixtures; performance cannot be treated as real Instamart behavior or production readiness. The perfect few-shot accuracy and exact retrieval facts follow the supplied templates, and answer snippets can be incomplete or contain overlapping wording. Real tickets and policy questions need separate retrieval, grounding and routing evaluation.
+
+The Premium flag is a post-hoc whole-window RFM label that includes September; therefore the retention list is illustrative and is not a leakage-free evaluation. The model's order features remain strictly pre-cutoff, but city/category delivery medians in the mandated Part A cleaner use the whole order window. For a fully historical deployment evaluation, fit imputation statistics on data available before each cutoff as well, then use time-based validation and fit customer segments at campaign time.
+
+The test set is small and customer-level rather than repeated rolling periods. Tune campaign thresholds on separate validation data, measure retention lift and offer costs, and compare performance across cities and customer groups. Oversampling raises recall at the cost of precision; feature importance and coefficients describe associations, not causation.
+
+The Part C budget intentionally gates usage already consumed, allowing a final response to cross the threshold. A hard production spend cap would require reserving a response allowance before a call. The project masks the three prescribed identifiers, but a real privacy pipeline would also cover addresses and other identifiers and protect checkpoint/log access.
+
+Refund actions are local JSONL simulations. All request dates are assumed within seven days, as instructed. The local run/step key handles replay for the single-process recovery demo; concurrent workers and real payment systems would need transactions, locking, provider idempotency keys and order-level duplicate-refund protection. Persisted resume time counts active processing time, not downtime between processes. Ledger timestamps and checkpoint elapsed times vary between runs.
+
+The supplied files remain byte-for-byte unmodified, and verification checks their SHA-256 hashes. All solver code uses the permitted standard library, pandas, numpy, scikit-learn and joblib; requirements include their frozen transitive dependencies. Optional Jupyter packages serve only interactive notebook editing. Review and understand the notebooks before submission, and follow your programme's academic-integrity and assistance-disclosure requirements. Commit the text/code, clean database, required model/CSV/JSONL outputs and checkpoints to `main`, then push them to the public repository; keep credentials and virtual environments excluded.

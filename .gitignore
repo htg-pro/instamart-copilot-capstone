@@ -40,3 +40,6 @@ wheels/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Notebook editor checkpoints; executed .ipynb deliverables remain tracked
+.ipynb_checkpoints/

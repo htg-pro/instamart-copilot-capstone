@@ -7,9 +7,9 @@ def compute_rfm_table(clean_orders_path=os.path.join("data", "clean", "orders.cs
     orders = pd.read_csv(clean_orders_path)
     orders["order_ts"] = pd.to_datetime(orders["order_ts"])
 
-    # Completed orders only
-    completed = orders[orders["status"] == "completed"].copy()
     snapshot = pd.Timestamp(snapshot_date)
+    # An as-of snapshot cannot include future orders.
+    completed = orders[(orders["status"] == "completed") & (orders["order_ts"] < snapshot)].copy()
 
     rfm = completed.groupby("customer_id").agg(
         recency=("order_ts", lambda ts: int((snapshot - ts.max()).days)),

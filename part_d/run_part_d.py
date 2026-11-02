@@ -1,152 +1,196 @@
-"""part_d/run_part_d.py - End-to-end execution of Part D."""
-import os
-import sys
+"""Reproduce every Part D result and persist its text-only evidence artifacts."""
+from collections import Counter
 import json
-import re
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 import pandas as pd
+import mock_llm
+from part_d.rag import chunk_policy_documents, PolicyRetriever, evaluate_policy_rag
+from part_d.agent import SimulatedCrash, load_checkpoint, run_agent, resume_agent
+from part_d.tools import TOOLS_SPEC, TOOL_MAP, calculate_refund
 
-# Ensure repository root is on sys.path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+OUTPUTS = ROOT / "outputs"
+BATCH_RUN_IDS = [f"part_d_batch_{i.lower()}" for i in ("S1", "S2", "S3", "S4", "S5", "S6", "S7")]
+DEMO_RUN_IDS = ["part_d_demo_token_limit", "part_d_demo_timeout", "part_d_demo_crash_resume"]
 
-from part_d.rag import (
-    chunk_policy_documents, PolicyRetriever, evaluate_policy_rag
-)
-from part_d.agent import run_agent, resume_agent
+
+def _append_jsonline(path, record):
+    with path.open("a", encoding="utf-8") as stream:
+        stream.write(json.dumps(record, allow_nan=False) + "\n")
+
+
+def _reset_demo_ledger():
+    """Replace only this reproducible batch's actions; preserve unrelated ledger records."""
+    path = OUTPUTS / "refund_ledger.jsonl"
+    retained = []
+    own_run_ids = set(BATCH_RUN_IDS + DEMO_RUN_IDS)
+    if path.exists():
+        retained = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        retained = [record for record in retained if record.get("run_id") not in own_run_ids]
+    path.write_text("".join(json.dumps(record) + "\n" for record in retained), encoding="utf-8")
+
+
+def refund_from_result(result):
+    amounts = [step["observation"]["refund_inr"] for step in result["steps"]
+               if "refund_inr" in step["observation"]]
+    return float(amounts[-1]) if amounts else 0.0
+
+
+def build_report():
+    """Run overlapping/non-overlapping RAG, seven cases, safety stops, and recovery."""
+    OUTPUTS.mkdir(parents=True, exist_ok=True)
+    mock_llm.reset()
+    _reset_demo_ledger()
+    chunks = chunk_policy_documents()
+    chunk_counts = dict(sorted(Counter(chunk["source"] for chunk in chunks).items()))
+    expected_counts = {"refund_policy.txt": 4, "delivery_policy.txt": 3, "escalation_policy.txt": 3,
+                       "payment_policy.txt": 3, "privacy_policy.txt": 2}
+    assert chunk_counts == expected_counts and len(chunks) == 15
+    retriever = PolicyRetriever(chunks)
+    reference_query = "refund policy late delivery"
+    reference_results = retriever.retrieve(reference_query)
+    assert [chunk["source"] for chunk in reference_results] == ["refund_policy.txt"] * 3
+    overlap_10 = evaluate_policy_rag(retriever)
+    overlap_0 = evaluate_policy_rag(PolicyRetriever(chunk_policy_documents(overlap=0)))
+    assert (overlap_10["doc_hits"], overlap_10["fact_hits"], overlap_10["fallback_hits"]) == (12, 12, 2)
+    broken = [detail for detail in overlap_0["details"]
+              if detail["expected_doc"] != "NONE" and not detail["fact_hit"]]
+    assert broken
+
+    scenario_rows = pd.read_csv(ROOT / "data/raw/agent_scenarios.csv").to_dict("records")
+    (OUTPUTS / "agent_runs.jsonl").write_text("", encoding="utf-8")
+    summaries = []
+    for row, run_id in zip(scenario_rows, BATCH_RUN_IDS):
+        result = run_agent(row["message"], row["scenario_id"], run_id=run_id)
+        _append_jsonline(OUTPUTS / "agent_runs.jsonl", result)
+        expected_status = "FALLBACK_MAX_ITERATIONS" if row["scenario_id"] == "S7" else row["expected_outcome"]
+        actual_refund = refund_from_result(result)
+        assert result["status"] == expected_status
+        assert abs(actual_refund - float(row["expected_refund_inr"])) <= 0.01
+        summaries.append({"scenario_id": row["scenario_id"], "status": result["status"],
+                          "refund_inr": actual_refund, "expected_refund_inr": float(row["expected_refund_inr"]),
+                          "llm_calls": result["llm_calls"], "tokens_used": result["tokens_used"],
+                          "tools_executed": result["tools_executed"], "final_answer": result["final_answer"]})
+    assert summaries[0]["llm_calls"] == 5
+    assert summaries[-1]["llm_calls"] == 6 and summaries[-1]["tokens_used"] <= 6000
+
+    s1 = scenario_rows[0]
+    token_demo = run_agent(s1["message"], "S1", run_id=DEMO_RUN_IDS[0], token_limit=200)
+    timeout_demo = run_agent(s1["message"], "S1", run_id=DEMO_RUN_IDS[1], time_limit_seconds=0)
+    assert token_demo["status"] == "FALLBACK_TOKEN_LIMIT"
+    assert timeout_demo["status"] == "FALLBACK_TIMEOUT" and timeout_demo["llm_calls"] == 0
+    assert len(token_demo["steps"]) < token_demo["llm_calls"]
+
+    crash_run_id = DEMO_RUN_IDS[2]
+    try:
+        run_agent(s1["message"], "S1", run_id=crash_run_id, crash_after_tool_step=2)
+    except SimulatedCrash as error:
+        crash_message = str(error)
+    else:
+        raise AssertionError("The simulated crash did not occur.")
+    before_resume = load_checkpoint(crash_run_id)
+    assert before_resume["tools_executed"] == ["get_order", "search_policy"]
+    resumed = resume_agent(crash_run_id)
+    expected_sequence = ["get_order", "search_policy", "calculate_refund", "issue_refund"]
+    assert resumed["tools_executed"] == expected_sequence
+    assert resumed["status"] == "REFUND" and refund_from_result(resumed) == 128.25
+    assert resumed["llm_calls"] == 5 and resumed["resumed_llm_calls"] == 3
+    ledger_before_repeat = (OUTPUTS / "refund_ledger.jsonl").read_text(encoding="utf-8")
+    assert resume_agent(crash_run_id) == resumed
+    assert (OUTPUTS / "refund_ledger.jsonl").read_text(encoding="utf-8") == ledger_before_repeat
+    crash_ledger = [json.loads(line) for line in ledger_before_repeat.splitlines()
+                    if json.loads(line).get("run_id") == crash_run_id]
+    assert len(crash_ledger) == 1 and crash_ledger[0]["tool"] == "issue_refund"
+
+    (OUTPUTS / "agent_demos.jsonl").write_text("", encoding="utf-8")
+    for result in (token_demo, timeout_demo, resumed):
+        _append_jsonline(OUTPUTS / "agent_demos.jsonl", result)
+
+    boundary_examples = [
+        {"question_id": "Q1", "source": "refund_policy.txt", "boundary_word": 40,
+         "explanation": "The condition more than 45 minutes is in words 0-39, while the full-refund result "
+         "starts at word 40. The mock selects the incomplete result sentence; the 30-69 chunk "
+         "keeps the condition and result together."},
+        {"question_id": "Q8", "source": "payment_policy.txt", "boundary_word": 40,
+         "explanation": "The failed-payment condition ends in words 0-39 and within 48 hours begins at word 40. "
+         "The zero-overlap retrieved context omits the timing chunk; overlapping words 30-69 retain both."},
+    ]
+    react_comparison = (
+        f"The measured ReAct workflow uses 5 model calls and {summaries[0]['tokens_used']} estimated tokens for S1, "
+        f"3 calls/{summaries[4]['tokens_used']} tokens for the cancelled order S5, and "
+        f"2 calls/{summaries[5]['tokens_used']} tokens for NOT_FOUND S6. Each new call resends accumulated history, "
+        "so its token cost grows with the number and size of observations. A plan-and-execute design could request "
+        "the full conditional step list once, then execute validated tools locally and replan only on an error; "
+        "a normal request could use one planning call plus an optional final response call. Its exact token saving "
+        "is unmeasured because the supplied mock implements ReAct, not a planner. ReAct adapts immediately to "
+        "NOT_FOUND or a cancelled status and stops before money is issued. A static plan must branch on those "
+        "observations or replan; blindly following the remaining steps is unsafe. For this fixed refund workflow "
+        "I would choose a validated conditional plan executed by deterministic Python rules, with human escalation "
+        "above INR 1000. It reduces repeated model calls while retaining action-time checks. ReAct is preferable "
+        "when policy or observations need more open-ended reasoning."
+    )
+    assert len(react_comparison.split()) <= 250
+    own_ids = set(BATCH_RUN_IDS + DEMO_RUN_IDS)
+    ledger = [json.loads(line) for line in (OUTPUTS / "refund_ledger.jsonl").read_text().splitlines()]
+    batch_ledger = [entry for entry in ledger if entry.get("run_id") in own_ids]
+    assert len(batch_ledger) == 4
+    report = {
+        "part": "D", "offline": True, "chunk_size_words": 40, "overlap_words": 10,
+        "chunk_total": len(chunks), "chunk_counts": chunk_counts,
+        "reference_query": reference_query, "reference_retrieval": reference_results,
+        "rag_overlap_10": overlap_10, "rag_overlap_0": overlap_0,
+        "zero_overlap_chunk_total": len(chunk_policy_documents(overlap=0)),
+        "zero_overlap_failures": broken, "boundary_examples": boundary_examples,
+        "tools_spec": TOOLS_SPEC, "tool_map_names": list(TOOL_MAP),
+        "refund_boundary_checks": [
+            {"order_amount": 100, "delivery_minutes": minutes,
+             "refund_inr": calculate_refund(100, minutes)["refund_inr"]}
+            for minutes in (45, 45.01, None)],
+        "scenarios": summaries, "scenario_count": len(summaries),
+        "limits": {"max_iterations": 6, "token_limit": 6000, "time_limit_seconds": 10},
+        "token_limit_demo": token_demo, "timeout_demo": timeout_demo,
+        "crash_resume": {"run_id": crash_run_id, "crash_message": crash_message,
+                         "checkpoint_after_crash": before_resume,
+                         "tools_before_crash": before_resume["tools_executed"],
+                         "tools_after_resume": resumed["tools_executed"][2:],
+                         "complete_tool_sequence": resumed["tools_executed"],
+                         "tool_execution_count": len(resumed["steps"]),
+                         "result": resumed, "refund_inr": refund_from_result(resumed),
+                         "ledger_action_count": len(crash_ledger), "repeat_resume_no_duplicate": True},
+        "ledger_actions_this_batch": batch_ledger,
+        "react_vs_plan_and_execute": react_comparison,
+        "artifacts": ["outputs/part_d_report.json", "outputs/agent_runs.jsonl",
+                      "outputs/agent_demos.jsonl", "outputs/refund_ledger.jsonl", "state/part_d_*.json"],
+        "verification": {"chunk_reference": True, "retrieval_grounding_reference": True,
+                         "zero_overlap_has_failure": True, "seven_expected_scenarios": True,
+                         "six_call_s7_with_default_budget": True, "independent_stop_limits": True,
+                         "crash_resume_exactly_four_tools": True, "completed_resume_is_idempotent": True},
+    }
+    (OUTPUTS / "part_d_report.json").write_text(json.dumps(report, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+    return report
+
 
 def main():
-    print("==================================================")
-    print("     PART D: POLICY RAG ASSISTANT & REFUND AGENT  ")
-    print("==================================================")
+    report = build_report()
+    print("Part D: offline policy RAG and refund agent")
+    print("Chunk counts:", report["chunk_counts"], "total:", report["chunk_total"])
+    for overlap, key in ((10, "rag_overlap_10"), (0, "rag_overlap_0")):
+        evaluation = report[key]
+        print(f"Overlap={overlap}: expected document {evaluation['doc_hits']}/12; "
+              f"expected fact {evaluation['fact_hits']}/12; uncovered fallback {evaluation['fallback_hits']}/2")
+    print(pd.DataFrame(report["scenarios"])[
+        ["scenario_id", "status", "refund_inr", "llm_calls", "tokens_used"]].to_string(index=False))
+    print("Token-limit demo:", report["token_limit_demo"]["status"])
+    print("Zero-timeout demo:", report["timeout_demo"]["status"])
+    print("Crash/resume:", " -> ".join(report["crash_resume"]["complete_tool_sequence"]))
+    print("Saved outputs/part_d_report.json, seven batch logs, three demo logs, and checkpoints.")
+    return report
 
-    # 1. Document Chunking & Retrieval Evaluation
-    print("\n--- Step 1: Chunking Policy Documents (40 words, 10 overlap) ---")
-    chunks_10 = chunk_policy_documents(overlap=10)
-    print(f"Total chunks generated: {len(chunks_10)}")
-    by_file = {}
-    for c in chunks_10:
-        by_file[c["source"]] = by_file.get(c["source"], 0) + 1
-    for f, count in sorted(by_file.items()):
-        print(f"  {f}: {count} chunks")
-
-    retriever_10 = PolicyRetriever(chunks_10)
-
-    # Query check
-    test_q = "refund policy late delivery"
-    test_ret = retriever_10.retrieve(test_q, k=3)
-    print(f"\nTop 3 chunks for '{test_q}':")
-    for r in test_ret:
-        print(f"  Source: {r['source']}, Score: {r['score']:.4f}")
-
-    # 2. Evaluate with 10-word overlap
-    print("\n--- Step 2: Evaluating RAG with 10-Word Overlap ---")
-    eval_res_10 = evaluate_policy_rag(retriever_10)
-    print(f"Answerable Document Retrieval Accuracy: {eval_res_10['doc_hits']} / {eval_res_10['total_answerable']}")
-    print(f"Answerable Grounded Fact Accuracy: {eval_res_10['fact_hits']} / {eval_res_10['total_answerable']}")
-    print(f"Unanswerable Fallback Accuracy: {eval_res_10['fallback_hits']} / {eval_res_10['total_unanswerable']}")
-
-    # 3. Evaluate with zero overlap (40 words, 0 overlap)
-    print("\n--- Step 3: Evaluating RAG with Zero Overlap ---")
-    chunks_0 = chunk_policy_documents(overlap=0)
-    retriever_0 = PolicyRetriever(chunks_0)
-    eval_res_0 = evaluate_policy_rag(retriever_0)
-    print(f"Zero-Overlap Doc Retrieval Accuracy: {eval_res_0['doc_hits']} / {eval_res_0['total_answerable']}")
-    print(f"Zero-Overlap Grounded Fact Accuracy: {eval_res_0['fact_hits']} / {eval_res_0['total_answerable']}")
-    print(f"Zero-Overlap Fallback Accuracy: {eval_res_0['fallback_hits']} / {eval_res_0['total_unanswerable']}")
-
-    failing_q = [d for d in eval_res_0["details"] if not d["fact_hit"] and d["expected_doc"] != "NONE"]
-    print("\nQuestions broken by Zero-Overlap Chunking (boundary split):")
-    for item in failing_q:
-        print(f"  Question: \"{item['question']}\"")
-        print(f"    Expected Fact: \"{item['expected_fact']}\"")
-        print(f"    Returned Answer: \"{item['answer']}\"\n")
-
-    # 4. ReAct Refund Agent Scenarios
-    print("\n--- Step 4: Executing ReAct Refund Agent on 7 Scenarios ---")
-    scenarios_path = os.path.join("data", "raw", "agent_scenarios.csv")
-    scenarios_df = pd.read_csv(scenarios_path)
-
-    agent_runs_path = os.path.join("outputs", "agent_runs.jsonl")
-    refund_ledger_path = os.path.join("outputs", "refund_ledger.jsonl")
-
-    # Clear previous runs
-    os.makedirs("outputs", exist_ok=True)
-    if os.path.exists(agent_runs_path):
-        os.remove(agent_runs_path)
-    if os.path.exists(refund_ledger_path):
-        os.remove(refund_ledger_path)
-
-    scenario_summary = []
-
-    for _, row in scenarios_df.iterrows():
-        sid = row["scenario_id"]
-        msg = row["message"]
-        exp_outcome = row["expected_outcome"]
-        exp_refund = float(row["expected_refund_inr"])
-
-        run_output = run_agent(msg, sid)
-
-        # Extract evaluated refund amount from calculate_refund step or final answer
-        actual_refund = 0.0
-        calc_step = next((s for s in run_output["steps"] if s["name"] == "calculate_refund"), None)
-        if calc_step and "refund_inr" in calc_step.get("observation", {}):
-            actual_refund = float(calc_step["observation"]["refund_inr"])
-        else:
-            m = re.search(r"INR\s+([\d.]+)", run_output["final_answer"])
-            if m:
-                actual_refund = float(m.group(1))
-
-        # Append to agent_runs.jsonl
-        with open(agent_runs_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(run_output) + "\n")
-
-        scenario_summary.append({
-            "scenario_id": sid,
-            "status": run_output["status"],
-            "expected_outcome": exp_outcome,
-            "refund_amount": f"INR {actual_refund:.2f}",
-            "expected_refund": f"INR {exp_refund:.2f}",
-            "llm_calls": run_output["llm_calls"],
-            "tokens_used": run_output["tokens_used"],
-            "final_answer": run_output["final_answer"]
-        })
-
-    summary_df = pd.DataFrame(scenario_summary)
-    print("\nScenario Results Table:")
-    print(summary_df[["scenario_id", "status", "expected_outcome", "refund_amount", "expected_refund", "llm_calls", "tokens_used"]].to_string(index=False))
-
-    # 5. Stop-Safely Demonstrations
-    print("\n--- Step 5: Stop Safely Guardrail Demonstrations ---")
-    s1_row = scenarios_df.iloc[0]
-
-    # (a) Token limit demonstration
-    res_tok = run_agent(s1_row["message"], s1_row["scenario_id"], run_id="demo_token_limit", token_limit=200)
-    print(f"Token Limit Guardrail Demo (token_limit=200): Status = {res_tok['status']}")
-
-    # (b) Timeout demonstration
-    res_time = run_agent(s1_row["message"], s1_row["scenario_id"], run_id="demo_timeout", time_limit_seconds=0)
-    print(f"Timeout Guardrail Demo (time_limit_seconds=0): Status = {res_time['status']}")
-
-    # 6. Resumable State & Crash Recovery Demonstration
-    print("\n--- Step 6: Crash & Resume State Demonstration ---")
-    crash_run_id = "s1_crash_resume_demo"
-    print("Executing S1 with simulated crash after Tool Step 2 (search_policy)...")
-    try:
-        run_agent(
-            s1_row["message"],
-            s1_row["scenario_id"],
-            run_id=crash_run_id,
-            crash_after_tool_step=2
-        )
-    except RuntimeError as ex:
-        print(f"Caught Simulated Crash: {ex}")
-
-    print("Calling resume_agent to recover execution from checkpoint...")
-    resumed_res = resume_agent(crash_run_id)
-    print(f"Resumed Run Final Status: {resumed_res['status']}")
-    print(f"Resumed Run Final Answer: {resumed_res['final_answer']}")
-    print(f"Complete Tool Execution Sequence: {resumed_res['tools_executed']}")
-
-    print("\nPart D completed successfully!")
 
 if __name__ == "__main__":
     main()

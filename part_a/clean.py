@@ -33,7 +33,7 @@ def clean_customers_data(raw_customers_df):
     age_numeric = pd.to_numeric(df["age"], errors="coerce")
     valid_age = age_numeric.where((age_numeric >= 10) & (age_numeric <= 100), np.nan)
     city_median_age = valid_age.groupby(df["city"]).transform("median")
-    df["age"] = valid_age.fillna(city_median_age).astype(int)
+    df["age"] = valid_age.fillna(city_median_age)
 
     # Rule (d): Datetime conversion
     df["signup_date"] = pd.to_datetime(df["signup_date"])
@@ -60,7 +60,11 @@ def clean_orders_data(raw_orders_df, clean_products_df):
     df = df.drop_duplicates()
 
     # Rule 3: Keep latest order_ts per order_id
-    df = df.sort_values("order_ts").groupby("order_id", as_index=False).last()
+    # Select an entire row. GroupBy.last() skips missing values column by
+    # column and can accidentally combine fields from different records.
+    df = (df.sort_values("order_ts", kind="stable")
+          .drop_duplicates("order_id", keep="last")
+          .sort_values("order_id", kind="stable").reset_index(drop=True))
 
     # Rule 4: Convert order_amount and impute missing
     df["order_amount"] = pd.to_numeric(df["order_amount"], errors="coerce")
@@ -86,6 +90,7 @@ def clean_orders_data(raw_orders_df, clean_products_df):
     df.loc[completed_mask, "delivery_minutes"] = (
         df.loc[completed_mask, "delivery_minutes"].fillna(median_category_deliv)
     )
+    df.loc[df["status"] == "cancelled", "delivery_minutes"] = np.nan
 
     # Cleanup temporary category column
     df = df.drop(columns=["_category"])

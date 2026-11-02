@@ -1,0 +1,36 @@
+{
+  "run_id": "part_d_demo_timeout",
+  "scenario_id": "S1",
+  "messages": [
+    {
+      "role": "system",
+      "content": "AGENT. Look up the order, consult policy, calculate the refund, and issue or escalate it. Only completed orders qualify; delivery must exceed 45 minutes. Refunds above INR 1000 require a human. All requests are within seven days."
+    },
+    {
+      "role": "user",
+      "content": "My order ORD-100048 reached me very late. I would like a refund."
+    }
+  ],
+  "tokens_used": 0,
+  "llm_calls": 0,
+  "step_number": 0,
+  "steps": [],
+  "tools_executed": [],
+  "pending_tool_calls": [],
+  "elapsed_seconds": 0.0006203360007930314,
+  "limits": {
+    "max_iterations": 6,
+    "token_limit": 6000,
+    "time_limit_seconds": 0
+  },
+  "result": {
+    "run_id": "part_d_demo_timeout",
+    "scenario_id": "S1",
+    "steps": [],
+    "llm_calls": 0,
+    "tokens_used": 0,
+    "tools_executed": [],
+    "status": "FALLBACK_TIMEOUT",
+    "final_answer": "FALLBACK: Wall-clock time limit reached. Human support should review scenario S1; completed no tools. Calls=0, tokens=0. Full observations are retained in the checkpoint."
+  }
+}
