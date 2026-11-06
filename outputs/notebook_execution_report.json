@@ -2,21 +2,49 @@
   {
     "path": "part_a/Part_A_Data_Foundation.ipynb",
     "code_cells_executed": 14,
-    "status": "PASSED"
+    "status": "PASSED",
+    "engine": "standard-library AST executor",
+    "python_version": "3.12.13",
+    "python_runtime": "3.12.13 (main, May 10 2026, 19:30:01) [Clang 22.1.3 ]",
+    "schema_validation": "SKIPPED_NOT_INSTALLED",
+    "source_sha256": "a15bf765869f8849f7da9129a39bc0f4cc7508eee30b1ad60c691c8f66e352ee",
+    "executed_file_sha256": "8a333d1383b8c3eb097a3140b123fbba6374229fa18304740df22cacaf40707b",
+    "project_source_sha256": "824376df7642a8831e8f0d68ab5e657d80dcac8b12e662c93eb767de0b07c69f"
   },
   {
     "path": "part_b/Part_B_Customer_Segments_and_Lapse_Prediction.ipynb",
     "code_cells_executed": 10,
-    "status": "PASSED"
+    "status": "PASSED",
+    "engine": "standard-library AST executor",
+    "python_version": "3.12.13",
+    "python_runtime": "3.12.13 (main, May 10 2026, 19:30:01) [Clang 22.1.3 ]",
+    "schema_validation": "SKIPPED_NOT_INSTALLED",
+    "source_sha256": "622ce78f365bc6b5ab103a23cc728e4f212d354375ae85558b1d63859d83c517",
+    "executed_file_sha256": "0cd2c721dab629acc31a046e8e04145416f3b9f075d6b5de60b8def410ff5c7e",
+    "project_source_sha256": "824376df7642a8831e8f0d68ab5e657d80dcac8b12e662c93eb767de0b07c69f"
   },
   {
     "path": "part_c/Part_C_Support_Ticket_Triage_with_Guardrails.ipynb",
     "code_cells_executed": 12,
-    "status": "PASSED"
+    "status": "PASSED",
+    "engine": "standard-library AST executor",
+    "python_version": "3.12.13",
+    "python_runtime": "3.12.13 (main, May 10 2026, 19:30:01) [Clang 22.1.3 ]",
+    "schema_validation": "SKIPPED_NOT_INSTALLED",
+    "source_sha256": "e36aa647d49127f478ef42fb6a393b86b0e2e169f0989c6c7fd5d9bb9893a94f",
+    "executed_file_sha256": "7cbaa1816026fa893ac53a740cfb09a75a71b43af8c87e47a1a05f5c9c881ee1",
+    "project_source_sha256": "824376df7642a8831e8f0d68ab5e657d80dcac8b12e662c93eb767de0b07c69f"
   },
   {
     "path": "part_d/Part_D_Policy_RAG_and_Refund_Agent.ipynb",
     "code_cells_executed": 19,
-    "status": "PASSED"
+    "status": "PASSED",
+    "engine": "standard-library AST executor",
+    "python_version": "3.12.13",
+    "python_runtime": "3.12.13 (main, May 10 2026, 19:30:01) [Clang 22.1.3 ]",
+    "schema_validation": "SKIPPED_NOT_INSTALLED",
+    "source_sha256": "58dbc561d2a6cc6da901cec70a43d2cadd155ce96a1a6ab84284e9ddfe977128",
+    "executed_file_sha256": "67edd82a7d6f0900a37dcfba2851f2be1020b3d7a9fdd877c268012c4058783c",
+    "project_source_sha256": "824376df7642a8831e8f0d68ab5e657d80dcac8b12e662c93eb767de0b07c69f"
   }
 ]

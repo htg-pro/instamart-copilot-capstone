@@ -11,19 +11,39 @@
   "notebooks": [
     {
       "path": "part_a/Part_A_Data_Foundation.ipynb",
-      "executed_code_cells": 14
+      "executed_code_cells": 14,
+      "engine": "standard-library AST executor",
+      "python_version": "3.12.13",
+      "schema_validation": "SKIPPED_NOT_INSTALLED",
+      "source_sha256": "a15bf765869f8849f7da9129a39bc0f4cc7508eee30b1ad60c691c8f66e352ee",
+      "executed_file_sha256": "8a333d1383b8c3eb097a3140b123fbba6374229fa18304740df22cacaf40707b"
     },
     {
       "path": "part_b/Part_B_Customer_Segments_and_Lapse_Prediction.ipynb",
-      "executed_code_cells": 10
+      "executed_code_cells": 10,
+      "engine": "standard-library AST executor",
+      "python_version": "3.12.13",
+      "schema_validation": "SKIPPED_NOT_INSTALLED",
+      "source_sha256": "622ce78f365bc6b5ab103a23cc728e4f212d354375ae85558b1d63859d83c517",
+      "executed_file_sha256": "0cd2c721dab629acc31a046e8e04145416f3b9f075d6b5de60b8def410ff5c7e"
     },
     {
       "path": "part_c/Part_C_Support_Ticket_Triage_with_Guardrails.ipynb",
-      "executed_code_cells": 12
+      "executed_code_cells": 12,
+      "engine": "standard-library AST executor",
+      "python_version": "3.12.13",
+      "schema_validation": "SKIPPED_NOT_INSTALLED",
+      "source_sha256": "e36aa647d49127f478ef42fb6a393b86b0e2e169f0989c6c7fd5d9bb9893a94f",
+      "executed_file_sha256": "7cbaa1816026fa893ac53a740cfb09a75a71b43af8c87e47a1a05f5c9c881ee1"
     },
     {
       "path": "part_d/Part_D_Policy_RAG_and_Refund_Agent.ipynb",
-      "executed_code_cells": 19
+      "executed_code_cells": 19,
+      "engine": "standard-library AST executor",
+      "python_version": "3.12.13",
+      "schema_validation": "SKIPPED_NOT_INSTALLED",
+      "source_sha256": "58dbc561d2a6cc6da901cec70a43d2cadd155ce96a1a6ab84284e9ddfe977128",
+      "executed_file_sha256": "67edd82a7d6f0900a37dcfba2851f2be1020b3d7a9fdd877c268012c4058783c"
     }
   ],
   "regression_checks": [
@@ -31,10 +51,16 @@
     "fractional age median",
     "future label isolation",
     "oversampling preserves original train rows",
+    "saved-model metric parity",
+    "training-only scaler parameters",
+    "Premium retention ranking and probabilities",
     "strict output validation",
     "PII masking",
     "reference results",
     "routing",
-    "agent limits and artifacts"
+    "agent limits and artifacts",
+    "sequential notebook outputs",
+    "notebook source/output fingerprints",
+    "project source fingerprints"
   ]
 }

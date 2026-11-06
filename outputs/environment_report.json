@@ -1,0 +1,119 @@
+{
+  "status": "INCOMPLETE",
+  "python": "3.12.13",
+  "python_requirement": ">=3.12",
+  "python_passed": true,
+  "sqlite": "3.50.4",
+  "sqlite_requirement": ">=3.25",
+  "sqlite_passed": true,
+  "requirements_sha256": "de6c0cb040722306f28580cec131a73de187963eac1c774b8739ae72fc315c27",
+  "analytics_passed": true,
+  "notebook_tools_passed": false,
+  "packages": [
+    {
+      "name": "cloudpickle",
+      "expected": "3.1.2",
+      "installed": "3.1.2",
+      "group": "analytics",
+      "status": "PASSED"
+    },
+    {
+      "name": "joblib",
+      "expected": "1.6.0",
+      "installed": "1.6.0",
+      "group": "analytics",
+      "status": "PASSED"
+    },
+    {
+      "name": "narwhals",
+      "expected": "2.28.0",
+      "installed": "2.28.0",
+      "group": "analytics",
+      "status": "PASSED"
+    },
+    {
+      "name": "numpy",
+      "expected": "2.5.4",
+      "installed": "2.5.4",
+      "group": "analytics",
+      "status": "PASSED"
+    },
+    {
+      "name": "pandas",
+      "expected": "3.1.0",
+      "installed": "3.1.0",
+      "group": "analytics",
+      "status": "PASSED"
+    },
+    {
+      "name": "python-dateutil",
+      "expected": "3.0.0",
+      "installed": "3.0.0",
+      "group": "analytics",
+      "status": "PASSED"
+    },
+    {
+      "name": "scikit-learn",
+      "expected": "1.9.1",
+      "installed": "1.9.1",
+      "group": "analytics",
+      "status": "PASSED"
+    },
+    {
+      "name": "scipy",
+      "expected": "1.18.1",
+      "installed": "1.18.1",
+      "group": "analytics",
+      "status": "PASSED"
+    },
+    {
+      "name": "six",
+      "expected": "1.17.0",
+      "installed": "1.17.0",
+      "group": "analytics",
+      "status": "PASSED"
+    },
+    {
+      "name": "threadpoolctl",
+      "expected": "3.7.0",
+      "installed": "3.7.0",
+      "group": "analytics",
+      "status": "PASSED"
+    },
+    {
+      "name": "tzdata",
+      "expected": "2026.6",
+      "installed": "2026.6",
+      "group": "analytics",
+      "status": "PASSED"
+    },
+    {
+      "name": "ipykernel",
+      "expected": "6.30.1",
+      "installed": null,
+      "group": "notebooks",
+      "status": "MISSING"
+    },
+    {
+      "name": "notebook",
+      "expected": "7.4.7",
+      "installed": null,
+      "group": "notebooks",
+      "status": "MISSING"
+    },
+    {
+      "name": "nbformat",
+      "expected": "5.10.4",
+      "installed": null,
+      "group": "notebooks",
+      "status": "MISSING"
+    },
+    {
+      "name": "nbclient",
+      "expected": "0.10.2",
+      "installed": null,
+      "group": "notebooks",
+      "status": "MISSING"
+    }
+  ]
+}

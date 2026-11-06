@@ -2,18 +2,54 @@
   "status": "CLEAN DIRECTORY REPRODUCTION PASSED",
   "initial_data_outputs_state_absent": true,
   "commands": [
-    "python generate_data.py",
-    "python part_a/run_part_a.py",
-    "python part_b/run_part_b.py",
-    "python part_c/run_part_c.py",
-    "python part_d/run_part_d.py",
-    "python scripts/run_notebooks.py",
-    "python scripts/write_readme.py",
-    "python scripts/verify_project.py"
+    {
+      "command": "python scripts/check_environment.py --analytics-only",
+      "exit_code": 0
+    },
+    {
+      "command": "python generate_data.py",
+      "exit_code": 0
+    },
+    {
+      "command": "python part_a/run_part_a.py",
+      "exit_code": 0
+    },
+    {
+      "command": "python part_b/run_part_b.py",
+      "exit_code": 0
+    },
+    {
+      "command": "python part_c/run_part_c.py",
+      "exit_code": 0
+    },
+    {
+      "command": "python part_d/run_part_d.py",
+      "exit_code": 0
+    },
+    {
+      "command": "python scripts/run_notebooks.py",
+      "exit_code": 0
+    },
+    {
+      "command": "python scripts/write_readme.py",
+      "exit_code": 0
+    },
+    {
+      "command": "python scripts/verify_project.py",
+      "exit_code": 0
+    }
   ],
   "python": "3.12.13",
-  "installed_environment": "existing pinned .venv reused; package-index installation not repeated",
+  "sqlite": "3.50.4",
+  "installed_environment": "existing root .venv reused; no packages installed",
+  "fresh_package_index_installation_verified": false,
+  "interactive_jupyter_installation_launch_verified": false,
+  "official_notebook_schema_validation_verified": false,
+  "verification_scope": "Analytics execution and all four notebook sources verified with the standard-library AST executor in an existing pinned analytics environment. Combined requirements installation and interactive Jupyter launch are not verified.",
   "result": "ALL PROJECT CHECKS PASSED",
+  "selected_model_test_f1": 0.6404494382022472,
+  "requirements_sha256": "de6c0cb040722306f28580cec131a73de187963eac1c774b8739ae72fc315c27",
+  "project_source_sha256": "824376df7642a8831e8f0d68ab5e657d80dcac8b12e662c93eb767de0b07c69f",
   "notebooks": [
     {
       "path": "part_a/Part_A_Data_Foundation.ipynb",

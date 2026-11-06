@@ -19,7 +19,7 @@ from part_a.clean import clean_customers_data, clean_orders_data
 from part_a.db import run_sql_queries
 from part_a.report import validate_sql_results
 from part_a.validate import validate_part_a
-from part_b.lapse_modeling import (FEATURE_COLUMNS, balance_training_only,
+from part_b.lapse_modeling import (FEATURE_COLUMNS, NUMERIC_COLUMNS, balance_training_only,
                                   build_cohort_and_features, positive_class_metrics,
                                   split_lapse_data)
 from part_c.classifier import validate_response
@@ -69,6 +69,55 @@ def lapse_regressions(features):
     pd.testing.assert_frame_equal(features[["customer_id", *FEATURE_COLUMNS, "lapsed"]],
                                   changed[["customer_id", *FEATURE_COLUMNS, "lapsed"]])
     return X_test, y_test
+
+
+def verify_lapse_artifacts(features, model, report, segments, retention):
+    """Compare the saved pipeline and retention CSV with fresh held-out scoring."""
+    X_train, X_test, _, y_test = split_lapse_data(features)
+    experiment = report["lapse_experiment"]
+    model_keys = {"random forest": ("rf", "RandomForestClassifier"),
+                  "logistic regression": ("lr", "LogisticRegression")}
+    assert experiment["selected_model"] in model_keys
+    selected_key, expected_class = model_keys[experiment["selected_model"]]
+    classifier = model.named_steps["clf"]
+    assert type(classifier).__name__ == expected_class, "Saved model differs from reported selection."
+    actual_metrics = positive_class_metrics(y_test, model.predict(X_test))
+    assert actual_metrics == experiment[f"{selected_key}_test"], "Saved-model test metrics differ from Part B report."
+
+    numeric_scaler = model.named_steps["pre"].named_transformers_["num"]
+    np.testing.assert_allclose(numeric_scaler.mean_, X_train[NUMERIC_COLUMNS].mean().to_numpy(),
+                               rtol=1e-12, atol=1e-12,
+                               err_msg="Saved scaler means do not match training rows only.")
+    assert np.all(numeric_scaler.n_samples_seen_ == len(X_train))
+    frequency_index = NUMERIC_COLUMNS.index("frequency")
+    assert np.isclose(numeric_scaler.mean_[frequency_index], experiment["learned_freq_mean"],
+                      rtol=1e-12, atol=1e-12)
+    assert np.isclose(features.frequency.mean(), experiment["full_cohort_freq_mean"],
+                      rtol=1e-12, atol=1e-12)
+
+    test_scores = features.loc[X_test.index, ["customer_id"]].copy()
+    positive_column = classifier.classes_.tolist().index(1)
+    test_scores["lapse_probability"] = model.predict_proba(X_test)[:, positive_column]
+    test_scores["actually_lapsed"] = y_test.to_numpy()
+    test_scores = test_scores.merge(segments[["customer_id", "is_premium"]],
+                                   on="customer_id", how="left", validate="one_to_one")
+    premium = test_scores.is_premium.fillna(False).eq(True)
+    assert int(premium.sum()) == experiment["premium_test_customers"]
+    columns = ["customer_id", "lapse_probability", "actually_lapsed"]
+    expected_retention = test_scores.loc[premium].sort_values(
+        ["lapse_probability", "customer_id"], ascending=[False, True], kind="stable",
+    ).head(10)[columns].reset_index(drop=True)
+    reported_retention = pd.DataFrame(experiment["retention_top10"], columns=columns)
+    for actual in [retention.reset_index(drop=True), reported_retention]:
+        # IDs and labels match exactly, including deterministic tie order;
+        # probabilities allow only CSV floating-point round-trip differences.
+        pd.testing.assert_series_equal(actual.customer_id, expected_retention.customer_id,
+                                       check_exact=True)
+        pd.testing.assert_series_equal(actual.actually_lapsed, expected_retention.actually_lapsed,
+                                       check_exact=True)
+        np.testing.assert_allclose(actual.lapse_probability, expected_retention.lapse_probability,
+                                   rtol=1e-12, atol=1e-12)
+    assert experiment["retention_actually_lapsed_count"] == int(expected_retention.actually_lapsed.sum())
 
 
 def triage_regressions():
@@ -131,6 +180,7 @@ def main():
     assert len(retention) == min(10, b["lapse_experiment"]["premium_test_customers"])
     assert retention.lapse_probability.is_monotonic_decreasing
     assert set(retention.customer_id) <= set(features.loc[X_test.index, "customer_id"])
+    verify_lapse_artifacts(features, model, b, segments, retention)
 
     triage_regressions()
     c = reports["c"]
@@ -241,25 +291,41 @@ def main():
     assert calculate_refund(100,45)["refund_inr"] == 0
     assert calculate_refund(100,45.01)["refund_inr"] == 100
 
+    from scripts.run_notebooks import project_source_sha256, validate_execution_evidence
+    execution_report_path = ROOT / "outputs/notebook_execution_report.json"
+    assert execution_report_path.is_file(), "Run python scripts/run_notebooks.py before final verification."
+    execution_records = json.loads(execution_report_path.read_text(encoding="utf-8"))
+    assert isinstance(execution_records, list) and len(execution_records) == 4
+    executions = {record["path"]: record for record in execution_records}
+    assert len(executions) == 4, "Notebook execution report contains duplicate paths."
+    current_source_digest = project_source_sha256()
     notebooks = []
     for part in "abcd":
         paths = list(Path(f"part_{part}").glob("*.ipynb"))
         assert len(paths) == 1, f"Expected one complete Part {part.upper()} notebook"
         path = paths[0]
-        notebook = json.loads(path.read_text())
-        assert notebook["nbformat"] == 4
-        code = [cell for cell in notebook["cells"] if cell["cell_type"] == "code"]
-        assert len(code) >= 5 and all(cell["execution_count"] is not None for cell in code)
-        assert not any(output["output_type"] == "error" for cell in code for output in cell["outputs"])
-        assert not any(mime.startswith("image/") for cell in code for output in cell["outputs"] for mime in output.get("data", {}))
-        notebooks.append({"path":str(path),"executed_code_cells":len(code)})
+        notebook = json.loads(path.read_text(encoding="utf-8"))
+        relative_path = path.as_posix()
+        assert relative_path in executions, f"Missing notebook execution evidence: {relative_path}"
+        evidence = executions[relative_path]
+        count, schema_validation = validate_execution_evidence(
+            path.resolve(), notebook, evidence, current_project_sha256=current_source_digest)
+        assert count >= 5
+        notebooks.append({"path": relative_path, "executed_code_cells": count,
+                          "engine": evidence["engine"], "python_version": evidence["python_version"],
+                          "schema_validation": schema_validation,
+                          "source_sha256": evidence["source_sha256"],
+                          "executed_file_sha256": evidence["executed_file_sha256"]})
+    assert set(executions) == {notebook["path"] for notebook in notebooks}
     headings = [line[3:] for line in Path("README.md").read_text().splitlines() if line.startswith("## ")]
     assert headings == ["Overview","Reproduce","Part A","Part B","Part C","Part D","Limitations and Next Steps"]
     result = {"status":"ALL PROJECT CHECKS PASSED","supplied_files_unmodified":True,
               "parts_passed":["A","B","C","D"],"selected_model_test_f1":model_metrics["f1"],
               "notebooks":notebooks,"regression_checks":["latest whole order row","fractional age median",
-              "future label isolation","oversampling preserves original train rows","strict output validation",
-              "PII masking","reference results","routing","agent limits and artifacts"]}
+              "future label isolation","oversampling preserves original train rows","saved-model metric parity",
+              "training-only scaler parameters","Premium retention ranking and probabilities","strict output validation",
+              "PII masking","reference results","routing","agent limits and artifacts",
+              "sequential notebook outputs","notebook source/output fingerprints","project source fingerprints"]}
     Path("outputs/verification_report.json").write_text(json.dumps(result, indent=2) + "\n")
     print("ALL PROJECT CHECKS PASSED")
     print(f"Selected model lapsed-class F1: {model_metrics['f1']:.4f}")

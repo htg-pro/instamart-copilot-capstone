@@ -289,7 +289,7 @@
     "search_policy"
   ],
   "pending_tool_calls": [],
-  "elapsed_seconds": 0.008785316000285093,
+  "elapsed_seconds": 0.009173168000415899,
   "limits": {
     "max_iterations": 6,
     "token_limit": 6000,

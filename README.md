@@ -2,7 +2,7 @@
 
 ## Overview
 
-Complete offline solution for the four connected capstone parts. All data, policies and prices are synthetic and fictional; the brand name only frames the assignment. All monetary amounts use INR. Python 3.11 or newer and SQLite 3.25 or newer are required.
+Complete offline solution for the four connected capstone parts. All data, policies and prices are synthetic and fictional; the brand name only frames the assignment. All monetary amounts use INR. Use Python 3.12 and SQLite 3.25 or newer. The pinned scientific packages require Python 3.12 or newer; Python 3.12 is the tested environment.
 
 Part A cleans the exports and creates the analytical database. Part B consumes the clean CSVs to segment customers and predict lapse. Part C uses Part B segments to route privacy-masked support tickets. Part D queries Part A's database and reuses policy retrieval for a bounded, resumable refund workflow. All language-model calls go through the unmodified `mock_llm.py`; no API key, account or network connection is needed to run the project once its Python dependencies are installed.
 
@@ -18,8 +18,7 @@ The four named folders each contain a complete notebook with explanations, stepw
 ├── README.md                         # All findings and reproduction instructions
 ├── generate_data.py                  # Supplied, unmodified deterministic generator
 ├── mock_llm.py                       # Supplied, unmodified offline model
-├── requirements.txt                  # Frozen execution environment
-├── requirements-notebooks.txt        # Optional interactive notebook tools
+├── requirements.txt                  # Combined analytics and Jupyter environment
 ├── .gitignore
 ├── run_pipeline.py                   # All four parts, optionally regenerating raw data
 ├── part_a/                           # Data Foundation: sources and Part A notebook
@@ -43,11 +42,14 @@ The four named folders each contain a complete notebook with explanations, stepw
 │   ├── refund_ledger.jsonl           # Local simulated actions, with timestamps
 │   ├── part_a_report.json ... part_d_report.json
 │   ├── sql_q1.csv ... sql_q7.csv
+│   ├── environment_report.json       # Installed pins and missing notebook tools
 │   ├── notebook_execution_report.json
+│   ├── reproducibility_report.json   # Separate clean-directory reproduction evidence
 │   └── verification_report.json
 ├── state/                            # Saved agent checkpoints
 └── scripts/
-    ├── run_notebooks.py              # Dependency-free execution and output persistence
+    ├── check_environment.py          # Python, SQLite and combined dependency checks
+    ├── run_notebooks.py              # Cell execution with output and source verification
     ├── write_readme.py               # Rebuild this README from measured results
     └── verify_project.py             # Reference, artifact and regression checks
 ```
@@ -56,7 +58,7 @@ The original setup already uses branch `main`. Submission must use the public re
 
 ## Reproduce
 
-From the repository root, with Python 3.11+ available as `python`, run these numbered commands in order. Dependency installation needs access to a package index or a local wheel cache; execution itself is offline.
+From the repository root, with Python 3.12 available as `python`, run these numbered commands in order. Dependency installation needs access to a package index or a local wheel cache; execution itself is offline.
 
 ```bash
 # 1. Create an isolated environment
@@ -65,8 +67,10 @@ python -m venv .venv
 # 2. Activate it (Linux/macOS)
 source .venv/bin/activate
 
-# 3. Install the frozen dependencies
+# 3. Install analytics and notebook tools together
 python -m pip install -r requirements.txt
+python -m pip check
+python scripts/check_environment.py
 
 # 4. Generate the unmodified supplied data
 python generate_data.py
@@ -93,11 +97,15 @@ python scripts/write_readme.py
 python scripts/verify_project.py
 ```
 
-The generator's last line is exactly `generated: customers=1200 products=40 orders_raw=13084 tickets=164`. Part A's standalone validation prints `ALL CHECKPOINTS PASSED`; the final project verifier prints `ALL PROJECT CHECKS PASSED`. `requirements.txt` records `pip freeze` from the working environment. `.gitignore` excludes `.env`, `.venv/`, `__pycache__/` and notebook editor checkpoints.
+The generator's last line is exactly `generated: customers=1200 products=40 orders_raw=13084 tickets=164`. Part A's standalone validation prints `ALL CHECKPOINTS PASSED`; the final project verifier prints `ALL PROJECT CHECKS PASSED`. `requirements.txt` combines the scientific packages used for these results and the pinned Jupyter tools; there is one dependency installation for the entire project. `.gitignore` excludes `.env`, `.venv/`, `__pycache__/` and notebook editor checkpoints.
 
 Alternatively, `python run_pipeline.py --generate` performs steps 4-8. Use `python run_pipeline.py` if the supplied raw files already exist. Notebook execution reruns the respective part workflows and refreshes the same output paths. Batch agent logs and named checkpoints are reproducible; timestamps and elapsed times naturally vary, and unrelated old ledger/checkpoint records are preserved.
 
-For interactive notebooks, optionally run `python -m pip install -r requirements-notebooks.txt` and `python -m notebook`, or select this environment as the kernel in VS Code. Run all cells from top to bottom in A, B, C, D order. The bundled notebook executor needs no extra notebook libraries and supports these plain-Python, text-output notebooks; it is not a general executor for IPython magics or widget notebooks. On Windows, use `.venv\Scripts\activate` in Command Prompt for step 2.
+The notebook execution report records the Python runtime, execution method and SHA-256 fingerprints of notebook sources, saved outputs and project source files. The final verifier rejects stale evidence after changes to code, SQL, dependency pins or notebooks; rerun steps 9-11 after those edits. Official notebook schema validation also runs when the installed environment includes `nbformat`.
+
+For interactive notebooks, run `python -m notebook`; Jupyter and its Python kernel are included in the same `requirements.txt`. In VS Code, select `.venv/bin/python` as the notebook kernel. Run all cells from top to bottom in A, B, C, D order. The bundled notebook executor supports these plain-Python, text-output notebooks; it is not a general executor for IPython magics or widget notebooks. On Windows, use `.venv\Scripts\activate` in Command Prompt for step 2.
+
+Verification scope: the saved results were produced in the pinned analytics environment using the plain-Python notebook executor. Interactive Jupyter installation and launch have not been verified in this environment. The combined requirements file lists those tools, and `scripts/check_environment.py` checks their installation before a fresh reproduction.
 
 ## Part A
 

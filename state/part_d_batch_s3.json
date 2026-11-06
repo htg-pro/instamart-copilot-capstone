@@ -162,7 +162,7 @@
     "escalate_to_human"
   ],
   "pending_tool_calls": [],
-  "elapsed_seconds": 0.005912902001000475,
+  "elapsed_seconds": 0.0064602050006214995,
   "limits": {
     "max_iterations": 6,
     "token_limit": 6000,

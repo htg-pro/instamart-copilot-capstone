@@ -96,7 +96,7 @@
     "search_policy"
   ],
   "pending_tool_calls": [],
-  "elapsed_seconds": 0.0034404999987600604,
+  "elapsed_seconds": 0.003245261999836657,
   "limits": {
     "max_iterations": 6,
     "token_limit": 200,

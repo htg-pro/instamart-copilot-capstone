@@ -1,3 +1,5 @@
+# Python 3.12+; one environment for Parts A-D and interactive notebooks.
+# Analytics and model persistence (versions used for the submitted results).
 cloudpickle==3.1.2
 joblib==1.6.0
 narwhals==2.28.0
@@ -9,3 +11,9 @@ scipy==1.18.1
 six==1.17.0
 threadpoolctl==3.7.0
 tzdata==2026.6
+
+# Jupyter editing, standard notebook validation and kernel execution.
+ipykernel==6.30.1
+notebook==7.4.7
+nbformat==5.10.4
+nbclient==0.10.2

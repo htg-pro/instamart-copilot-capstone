@@ -1,3 +1,0 @@
-# Optional interactive notebook tools; the project and notebook executor do not need these.
-ipykernel>=6.29,<8
-notebook>=7,<8
